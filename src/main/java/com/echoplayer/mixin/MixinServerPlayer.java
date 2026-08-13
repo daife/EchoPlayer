@@ -66,14 +66,6 @@ public class MixinServerPlayer {
         }
     }
 
-    @Inject(method={"isSpectator"}, at={@At(value="HEAD")}, cancellable=true)
-    private void echoplayer$makeControllerBodyNonInteractive(CallbackInfoReturnable<Boolean> cir) {
-        ServerPlayer player = (ServerPlayer)((Object)this);
-        if (EchoPlayerManager.isPossessing(player)) {
-            cir.setReturnValue(true);
-        }
-    }
-
     @Inject(method={"startRiding(Lnet/minecraft/world/entity/Entity;Z)Z"}, at={@At(value="HEAD")}, cancellable=true)
     private void onStartRiding(Entity vehicle, boolean force, CallbackInfoReturnable<Boolean> cir) {
         EchoServerPlayer possessed;
