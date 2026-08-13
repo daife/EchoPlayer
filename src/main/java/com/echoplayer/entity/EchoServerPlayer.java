@@ -161,12 +161,4 @@ extends ServerPlayer {
         }
     }
 
-    @Override
-    public void completeUsingItem() {
-        if (EchoPlayerManager.isPossessed(this)) {
-            this.stopUsingItem();
-            return;
-        }
-        super.completeUsingItem();
-    }
 }

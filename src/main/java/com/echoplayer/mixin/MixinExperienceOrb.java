@@ -18,6 +18,13 @@ public class MixinExperienceOrb {
     @Unique
     private EchoServerPlayer echoplayer$mutatedEchoPlayer;
 
+    @Inject(method={"playerTouch"}, at={@At(value="HEAD")}, cancellable=true)
+    private void echoplayer$ignoreControllerObserver(Player player, CallbackInfo ci) {
+        if (player instanceof ServerPlayer && EchoPlayerManager.isPossessing((ServerPlayer)player)) {
+            ci.cancel();
+        }
+    }
+
     @Unique
     private EchoServerPlayer echoplayer$getPossessedXpTarget(Player player) {
         EchoServerPlayer echoPlayer;
@@ -57,4 +64,3 @@ public class MixinExperienceOrb {
         }
     }
 }
-

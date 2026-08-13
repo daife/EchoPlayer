@@ -419,6 +419,10 @@ public class EchoPlayerManager {
         return CONTROLLERS.containsKey(player.getUUID());
     }
 
+    public static boolean isControllerObserver(Entity entity) {
+        return entity instanceof ServerPlayer && EchoPlayerManager.isPossessing((ServerPlayer)entity);
+    }
+
     public static boolean shouldDisableCollision(Entity e1, Entity e2) {
         if (e1 instanceof ServerPlayer) {
             ServerPlayer p1 = (ServerPlayer)e1;
@@ -1273,7 +1277,6 @@ public class EchoPlayerManager {
             state.lastAbsorption = realPlayer.getAbsorptionAmount();
         }
         EchoPlayerManager.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
-        EchoPlayerManager.synchronizeUsingItem(realPlayer, echoPlayer);
         if (inventoryChanged) {
             EchoPlayerManager.updateEchoEquipment(echoPlayer);
         }
@@ -1350,7 +1353,6 @@ public class EchoPlayerManager {
             realPlayer.totalExperience = echoPlayer.totalExperience;
         }
         boolean abilitiesChanged = EchoPlayerManager.copyAbilitiesIfDifferent(echoPlayer, realPlayer);
-        EchoPlayerManager.synchronizeUsingItem(echoPlayer, realPlayer);
         if (healthChanged) {
             realPlayer.connection.send(new ClientboundSetHealthPacket(realPlayer.getHealth(), realPlayer.getFoodData().getFoodLevel(), realPlayer.getFoodData().getSaturationLevel()));
         }
@@ -1937,17 +1939,6 @@ public class EchoPlayerManager {
             EchoPlayerManager.copyAbilities(source, target);
         }
         return changed;
-    }
-
-    private static void synchronizeUsingItem(ServerPlayer source, ServerPlayer target) {
-        if (source.isUsingItem()) {
-            if (!target.isUsingItem() || target.getUsedItemHand() != source.getUsedItemHand()) {
-                target.stopUsingItem();
-                target.startUsingItem(source.getUsedItemHand());
-            }
-        } else if (target.isUsingItem()) {
-            target.stopUsingItem();
-        }
     }
 
     private static void updateEchoEquipment(EchoServerPlayer echoPlayer) {
