@@ -105,9 +105,6 @@
       "handleMoveVehicle": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5659_(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V",
       "parseCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_242658_(Ljava/lang/String;)Lcom/mojang/brigadier/ParseResults;"
     },
-    "com/echoplayer/mixin/MixinEntityPush": {
-      "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
-    },
     "com/echoplayer/mixin/MixinMinecraftServer": {
       "getChatDecorator": "Lnet/minecraft/server/MinecraftServer;m_236742_()Lnet/minecraft/network/chat/ChatDecorator;",
       "tickChildren": "Lnet/minecraft/server/MinecraftServer;m_5703_(Ljava/util/function/BooleanSupplier;)V"
@@ -239,9 +236,6 @@
         "broadcastChatMessage": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_243086_(Lnet/minecraft/network/chat/PlayerChatMessage;)V",
         "handleMoveVehicle": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5659_(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V",
         "parseCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_242658_(Ljava/lang/String;)Lcom/mojang/brigadier/ParseResults;"
-      },
-      "com/echoplayer/mixin/MixinEntityPush": {
-        "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
       },
       "com/echoplayer/mixin/MixinMinecraftServer": {
         "getChatDecorator": "Lnet/minecraft/server/MinecraftServer;m_236742_()Lnet/minecraft/network/chat/ChatDecorator;",

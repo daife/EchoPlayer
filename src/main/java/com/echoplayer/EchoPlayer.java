@@ -1,7 +1,6 @@
 package com.echoplayer;
 
 import com.echoplayer.CommonClass;
-import com.echoplayer.Constants;
 import com.echoplayer.client.ClientPacketHandler;
 import com.echoplayer.client.ClientPossessionData;
 import com.echoplayer.client.Keybinds;
