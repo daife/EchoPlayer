@@ -5,7 +5,9 @@ import com.echoplayer.manager.EchoPlayerManager;
 import com.google.common.collect.Multimap;
 import com.mojang.authlib.GameProfile;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -19,7 +21,8 @@ public class EchoPlayerSavedData
 extends SavedData {
     private static final String FILE_NAME = "echo_player";
     private final List<GameProfile> activeEchoPlayers = new ArrayList<GameProfile>();
-    private boolean allowMultipleControllers;
+    private final Map<UUID, UUID> echoPlayerOwners = new HashMap<UUID, UUID>();
+    private boolean allowOtherPlayersControl;
 
     public static EchoPlayerSavedData get(MinecraftServer server) {
         ServerLevel overworld = server.getLevel(Level.OVERWORLD);
@@ -62,7 +65,7 @@ extends SavedData {
         return compatProfile;
     }
 
-    public void addEchoPlayer(GameProfile profile) {
+    public void addEchoPlayer(GameProfile profile, UUID ownerId) {
         boolean changed = this.activeEchoPlayers.removeIf(p -> !EchoPlayerSavedData.isValidProfile(p));
         if (!EchoPlayerSavedData.isValidProfile(profile)) {
             if (changed) {
@@ -78,13 +81,16 @@ extends SavedData {
         if (changed) {
             this.setDirty();
         }
+        if (ownerId != null && !ownerId.equals(this.echoPlayerOwners.put(uuid, ownerId))) {
+            this.setDirty();
+        }
     }
 
     public void removeEchoPlayer(UUID uuid) {
         if (uuid == null) {
             return;
         }
-        if (this.activeEchoPlayers.removeIf(p -> !EchoPlayerSavedData.isValidProfile(p) || uuid.equals(p.getId()))) {
+        if (this.activeEchoPlayers.removeIf(p -> !EchoPlayerSavedData.isValidProfile(p) || uuid.equals(p.getId())) | this.echoPlayerOwners.remove(uuid) != null) {
             this.setDirty();
         }
     }
@@ -93,13 +99,17 @@ extends SavedData {
         return this.activeEchoPlayers;
     }
 
-    public boolean isAllowMultipleControllers() {
-        return this.allowMultipleControllers;
+    public UUID getOwner(UUID echoPlayerId) {
+        return this.echoPlayerOwners.get(echoPlayerId);
     }
 
-    public void setAllowMultipleControllers(boolean allowMultipleControllers) {
-        if (this.allowMultipleControllers != allowMultipleControllers) {
-            this.allowMultipleControllers = allowMultipleControllers;
+    public boolean isAllowOtherPlayersControl() {
+        return this.allowOtherPlayersControl;
+    }
+
+    public void setAllowOtherPlayersControl(boolean allowOtherPlayersControl) {
+        if (this.allowOtherPlayersControl != allowOtherPlayersControl) {
+            this.allowOtherPlayersControl = allowOtherPlayersControl;
             this.setDirty();
         }
     }
@@ -110,16 +120,20 @@ extends SavedData {
         for (GameProfile profile : this.activeEchoPlayers) {
             CompoundTag profileTag = new CompoundTag();
             NbtUtils.writeGameProfile(profileTag, profile);
+            UUID ownerId = this.echoPlayerOwners.get(profile.getId());
+            if (ownerId != null) {
+                profileTag.putUUID("Owner", ownerId);
+            }
             list.add(profileTag);
         }
         compoundTag.put("EchoPlayers", list);
-        compoundTag.putBoolean("AllowMultipleControllers", this.allowMultipleControllers);
+        compoundTag.putBoolean("AllowOtherPlayersControl", this.allowOtherPlayersControl);
         return compoundTag;
     }
 
     public static EchoPlayerSavedData load(CompoundTag compoundTag) {
         EchoPlayerSavedData data = new EchoPlayerSavedData();
-        data.allowMultipleControllers = compoundTag.getBoolean("AllowMultipleControllers");
+        data.allowOtherPlayersControl = compoundTag.getBoolean("AllowOtherPlayersControl");
         if (compoundTag.contains("EchoPlayers")) {
             ListTag list = compoundTag.getList("EchoPlayers", 10);
             for (int i = 0; i < list.size(); ++i) {
@@ -127,6 +141,9 @@ extends SavedData {
                 GameProfile profile = EchoPlayerSavedData.readGameProfileCompat(profileTag);
                 if (EchoPlayerSavedData.isValidProfile(profile)) {
                     data.activeEchoPlayers.add(profile);
+                    if (profileTag.hasUUID("Owner")) {
+                        data.echoPlayerOwners.put(profile.getId(), profileTag.getUUID("Owner"));
+                    }
                     continue;
                 }
                 data.setDirty();

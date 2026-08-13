@@ -25,10 +25,6 @@ public class MixinServerPlayer {
         if (echoPlayer == null) {
             return;
         }
-        if (!EchoPlayerManager.isAuthoritativeControllerForPossession(realPlayer)) {
-            cir.setReturnValue(Either.left(Player.BedSleepingProblem.OTHER_PROBLEM));
-            return;
-        }
         Either<Player.BedSleepingProblem, Unit> result = echoPlayer.startSleepInBed(bedPos);
         result.ifRight(unit -> EchoPlayerManager.mirrorPossessedSleep(realPlayer, echoPlayer));
         cir.setReturnValue(result);

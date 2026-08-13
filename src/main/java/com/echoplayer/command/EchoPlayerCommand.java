@@ -29,6 +29,7 @@ public class EchoPlayerCommand {
             }
             MinecraftServer server = source.getServer();
             ServerLevel level = source.getLevel();
+            ServerPlayer owner = EchoPlayerManager.getCommandExecutor(source);
             GameProfile profile = EchoPlayerManager.createStableProfile(name);
             String conflict = EchoPlayerManager.getSpawnConflict(server, profile);
             if (conflict != null) {
@@ -36,7 +37,7 @@ public class EchoPlayerCommand {
                 return 0;
             }
             try {
-                EchoServerPlayer echoPlayer = EchoPlayerManager.spawnEchoPlayer(server, level, profile);
+                EchoServerPlayer echoPlayer = EchoPlayerManager.spawnEchoPlayer(server, level, profile, owner.getUUID());
                 if (echoPlayer != null) {
                     echoPlayer.setPos(source.getPosition().x, source.getPosition().y, source.getPosition().z);
                     echoPlayer.setXRot(source.getRotation().x);
@@ -95,14 +96,14 @@ public class EchoPlayerCommand {
                 source.sendFailure(Component.literal("Player not found or is not an EchoPlayer."));
             }
             return 1;
-        })))).then(Commands.literal("config").then(((LiteralArgumentBuilder)Commands.literal("multi_control").executes(context -> {
-            boolean enabled = EchoPlayerManager.isMultiControlEnabled(((CommandSourceStack)context.getSource()).getServer());
-            ((CommandSourceStack)context.getSource()).sendSuccess(() -> Component.literal("multi_control is " + (enabled ? "enabled" : "disabled") + "."), false);
+        })))).then(Commands.literal("config").then(((LiteralArgumentBuilder)Commands.literal("allow_other_players_control").executes(context -> {
+            boolean enabled = EchoPlayerManager.isOtherPlayersControlAllowed(((CommandSourceStack)context.getSource()).getServer());
+            ((CommandSourceStack)context.getSource()).sendSuccess(() -> Component.literal("allow_other_players_control is " + (enabled ? "enabled" : "disabled") + "."), false);
             return enabled ? 1 : 0;
         })).then(Commands.argument("enabled", BoolArgumentType.bool()).executes(context -> {
             boolean enabled = BoolArgumentType.getBool((CommandContext)context, (String)"enabled");
-            EchoPlayerManager.setMultiControlEnabled(((CommandSourceStack)context.getSource()).getServer(), enabled);
-            ((CommandSourceStack)context.getSource()).sendSuccess(() -> Component.literal("multi_control set to " + (enabled ? "enabled" : "disabled") + "."), true);
+            EchoPlayerManager.setOtherPlayersControlAllowed(((CommandSourceStack)context.getSource()).getServer(), enabled);
+            ((CommandSourceStack)context.getSource()).sendSuccess(() -> Component.literal("allow_other_players_control set to " + (enabled ? "enabled" : "disabled") + "."), true);
             return 1;
         }))))).then(((LiteralArgumentBuilder)((LiteralArgumentBuilder)Commands.literal("skin").then(Commands.literal("set").then(Commands.argument("name", StringArgumentType.word()).suggests((context, builder) -> SharedSuggestionProvider.suggest(EchoPlayerManager.getEchoPlayerNames(((CommandSourceStack)context.getSource()).getServer()), builder)).then(Commands.argument("skin_name", StringArgumentType.word()).executes(context -> {
             CommandSourceStack source = (CommandSourceStack)context.getSource();

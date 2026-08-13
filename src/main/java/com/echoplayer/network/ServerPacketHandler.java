@@ -12,13 +12,4 @@ public class ServerPacketHandler {
         sender.getServer().execute(() -> EchoPlayerManager.revertPossession(sender));
     }
 
-    public static void handleControlInputPacket(ServerPlayer sender, FriendlyByteBuf buf) {
-        if (sender == null || sender.getServer() == null) {
-            return;
-        }
-        long sequence = buf.readVarLong();
-        short inputMask = buf.readUnsignedByte();
-        EchoPlayerManager.markControllerInput(sender, sequence, inputMask);
-    }
 }
-

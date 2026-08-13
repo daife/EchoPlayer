@@ -15,8 +15,4 @@ public class ClientPacketHandler {
         ClientPossessionData.reset();
     }
 
-    public static void handleControlSyncPacket(FriendlyByteBuf buf) {
-        ClientPossessionData.updateSharedControl(buf.readVarLong(), buf.readVarLong(), buf.readBoolean(), buf.readBoolean(), buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(), buf.readDouble(), buf.readDouble(), buf.readDouble());
-    }
 }
-

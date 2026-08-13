@@ -10,7 +10,7 @@ clients.
 - Possess an EchoPlayer and control it from your current client.
 - Keep player state, inventory, effects, movement, combat, and interactions in sync.
 - Change EchoPlayer skins by player name or URL.
-- Support multiple controllers through server configuration.
+- Restrict control to each EchoPlayer's creator by default, with an option to allow other players.
 
 The root command is `/echoplayer`.
 

@@ -41,11 +41,8 @@ public class EchoPlayer {
         DistExecutor.unsafeRunWhenOn((Dist)Dist.CLIENT, () -> () -> {
             FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent event) -> event.register(Keybinds.UNPOSSESS_KEY));
             MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent event) -> {
-                if (event.phase == TickEvent.Phase.START) {
-                    ClientPossessionData.clientTick(Minecraft.getInstance());
-                } else {
+                if (event.phase == TickEvent.Phase.END) {
                     Keybinds.clientTick(Minecraft.getInstance());
-                    ClientPossessionData.afterClientTick(Minecraft.getInstance());
                 }
             });
         });
@@ -81,8 +78,6 @@ public class EchoPlayer {
                 ClientPacketHandler.handlePossessPacket(msg.buf);
             } else if (msg.id.equals(NetworkPackets.UNPOSSESS_PACKET)) {
                 ClientPacketHandler.handleUnpossessPacket(msg.buf);
-            } else if (msg.id.equals(NetworkPackets.CONTROL_SYNC_PACKET)) {
-                ClientPacketHandler.handleControlSyncPacket(msg.buf);
             }
         });
     }
@@ -95,8 +90,6 @@ public class EchoPlayer {
         ServerPlayer sender = ((NetworkEvent.Context)ctx.get()).getSender();
         if (sender != null && msg.id.equals(NetworkPackets.UNPOSSESS_PACKET)) {
             ServerPacketHandler.handleUnpossessPacket(sender, msg.buf);
-        } else if (sender != null && msg.id.equals(NetworkPackets.CONTROL_INPUT_PACKET)) {
-            ServerPacketHandler.handleControlInputPacket(sender, msg.buf);
         }
     }
 
