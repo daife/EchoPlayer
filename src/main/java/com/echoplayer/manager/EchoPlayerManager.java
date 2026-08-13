@@ -106,8 +106,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelResource;
 
 public class EchoPlayerManager {
-    private static final double POSITION_EPSILON_SQR = 1.0E-6;
-    private static final float ROTATION_EPSILON = 0.01f;
     private static final UUID SPRINTING_SPEED_MODIFIER_ID = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
     private static final Set<UUID> MOVEMENT_SPEED_STATE_MODIFIER_IDS = Set.of(SPRINTING_SPEED_MODIFIER_ID, UUID.fromString("87f46a96-686f-4796-b035-22e16ee9e038"), UUID.fromString("1eaf83ff-7207-4596-b37a-d7a07b3ec4ce"));
     private static final Map<UUID, ControllerState> CONTROLLERS = new ConcurrentHashMap<UUID, ControllerState>();
@@ -2042,15 +2040,6 @@ public class EchoPlayerManager {
         ServerLevel level = controller.serverLevel();
         level.getChunkSource().removeEntity(controller);
         level.getChunkSource().addEntity(controller);
-    }
-
-    private static boolean shouldShowControllerToViewer(ServerPlayer controller, ServerPlayer viewer) {
-        if (controller == viewer || viewer instanceof EchoServerPlayer || controller.level().dimension() != viewer.level().dimension()) {
-            return false;
-        }
-        int trackingChunks = Math.min(controller.getType().clientTrackingRange(), controller.server.getPlayerList().getViewDistance());
-        double trackingRange = (double)trackingChunks * 16.0;
-        return controller.distanceToSqr(viewer) <= trackingRange * trackingRange;
     }
 
     private static void sendPlayerEntityToViewer(ServerPlayer controller, ServerPlayer viewer) {
