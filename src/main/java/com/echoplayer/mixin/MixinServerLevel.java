@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ServerLevel.class)
-@Implements(@Interface(iface=EntityGetter.class, prefix="echoplayer$", remap=Interface.Remap.ALL))
+@Implements(@Interface(iface=EntityGetter.class, prefix="echoplayer$entityGetter$", remap=Interface.Remap.ALL))
 public abstract class MixinServerLevel {
     @Redirect(method={"updateSleepingPlayerList"}, at=@At(value="INVOKE", target="Ljava/util/List;isEmpty()Z"))
     private boolean echoplayer$hasNoLogicalSleepPlayers(List<ServerPlayer> players) {
@@ -39,7 +39,7 @@ public abstract class MixinServerLevel {
         EchoPlayerManager.wakeSleepingShells((ServerLevel)(Object)this);
     }
 
-    public Player echoplayer$getPlayerByUUID(UUID playerId) {
+    public Player echoplayer$entityGetter$getPlayerByUUID(UUID playerId) {
         EntityGetter level = (EntityGetter)(Object)this;
         for (Player player : level.players()) {
             if (playerId.equals(player.getUUID())) {
