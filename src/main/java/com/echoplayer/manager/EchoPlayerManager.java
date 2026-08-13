@@ -412,6 +412,10 @@ public class EchoPlayerManager {
         return CONTROLLERS.containsKey(player.getUUID());
     }
 
+    public static boolean isControllerObserver(Entity entity) {
+        return entity instanceof ServerPlayer && EchoPlayerManager.isPossessing((ServerPlayer)entity);
+    }
+
     public static boolean shouldDisableCollision(Entity e1, Entity e2) {
         if (e1 instanceof ServerPlayer) {
             ServerPlayer p1 = (ServerPlayer)e1;
