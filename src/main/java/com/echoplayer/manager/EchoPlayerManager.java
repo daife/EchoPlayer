@@ -75,7 +75,6 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
-import net.minecraft.network.protocol.game.ClientboundSetPassengersPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceKey;
@@ -412,8 +411,22 @@ public class EchoPlayerManager {
         return CONTROLLERS.containsKey(player.getUUID());
     }
 
-    public static boolean isControllerObserver(Entity entity) {
-        return entity instanceof ServerPlayer && EchoPlayerManager.isPossessing((ServerPlayer)entity);
+    public static int[] projectPassengerIdsForViewer(ServerPlayer viewer, int[] passengerIds) {
+        int[] projected = null;
+        for (int i = 0; i < passengerIds.length; ++i) {
+            int passengerId = passengerIds[i];
+            for (ControllerState state : CONTROLLERS.values()) {
+                if (state.realPlayer == viewer || state.realPlayer.getId() != passengerId || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying()) {
+                    continue;
+                }
+                if (projected == null) {
+                    projected = passengerIds.clone();
+                }
+                projected[i] = state.echoPlayer.getId();
+                break;
+            }
+        }
+        return projected;
     }
 
     public static boolean shouldDisableCollision(Entity e1, Entity e2) {
@@ -672,6 +685,9 @@ public class EchoPlayerManager {
             realPlayer.stopRiding();
         }
         Entity echoVehicle = echoPlayer.getVehicle();
+        if (echoVehicle != null) {
+            echoPlayer.stopRiding();
+        }
         EchoPlayerManager.teleportRealPlayerToEcho(state, true);
         EchoPlayerManager.copyEchoStateToRealController(state);
         EchoPlayerManager.syncControlledEchoToController(state);
@@ -684,15 +700,7 @@ public class EchoPlayerManager {
             shell.startRiding(realVehicle, true);
         }
         if (echoVehicle != null) {
-            int[] passengerIds = new int[echoVehicle.getPassengers().size()];
-            for (int i = 0; i < echoVehicle.getPassengers().size(); ++i) {
-                Entity p = echoVehicle.getPassengers().get(i);
-                passengerIds[i] = p == echoPlayer ? realPlayer.getId() : p.getId();
-            }
-            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-            buf.writeVarInt(echoVehicle.getId());
-            buf.writeVarIntArray(passengerIds);
-            realPlayer.connection.send(new ClientboundSetPassengersPacket(buf));
+            realPlayer.startRiding(echoVehicle, true);
         }
         return null;
     }
@@ -796,8 +804,8 @@ public class EchoPlayerManager {
         if (state == null) {
             return;
         }
-        Entity echoVehicle = realPlayer.getVehicle();
-        if (echoVehicle != null) {
+        Entity controlledVehicle = realPlayer.getVehicle();
+        if (controlledVehicle != null) {
             realPlayer.stopRiding();
         }
         if ((realVehicle = state.shellPlayer.getVehicle()) != null) {
@@ -806,6 +814,11 @@ public class EchoPlayerManager {
         EchoPlayerManager.commitControllerContainer(state);
         EchoPlayerManager.syncControlledEchoToController(state);
         EchoPlayerManager.copyRealStateToEcho(state, !state.echoPlayer.isDeadOrDying());
+        if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
+            EchoPlayerManager.copyRidingTransform(realPlayer, state.echoPlayer);
+            state.echoPlayer.startRiding(controlledVehicle, true);
+            EchoPlayerManager.copyRidingTransform(realPlayer, state.echoPlayer);
+        }
         EchoPlayerManager.removeControllerState(state);
         EchoPlayerManager.removeShell(state);
         if (!realPlayer.isDeadOrDying()) {
@@ -819,9 +832,6 @@ public class EchoPlayerManager {
             EchoPlayerManager.removeCrashBackup(realPlayer);
         }
         EchoPlayerManager.showControllerToObservers(realPlayer);
-        if (echoVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            state.echoPlayer.startRiding(echoVehicle, true);
-        }
         if (realVehicle != null && !realPlayer.isDeadOrDying()) {
             realPlayer.startRiding(realVehicle, true);
         }
@@ -982,21 +992,7 @@ public class EchoPlayerManager {
             EchoPlayerManager.revertPossession(realPlayer);
             return;
         }
-        if (state.lastSyncDimension != null) {
-            boolean realMoved;
-            boolean echoMoved = echoPlayer.level().dimension() != state.lastSyncDimension || echoPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || Math.abs(Mth.wrapDegrees(echoPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(echoPlayer.getXRot() - state.lastSyncXRot)) > 0.01f;
-            boolean bl = realMoved = realPlayer.level().dimension() != state.lastSyncDimension || realPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || Math.abs(Mth.wrapDegrees(realPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(realPlayer.getXRot() - state.lastSyncXRot)) > 0.01f;
-            if (echoMoved && !realMoved) {
-                EchoPlayerManager.teleportRealPlayerToEcho(state, true);
-            }
-        }
         EchoPlayerManager.syncControlledEchoToController(state);
-        state.lastSyncDimension = realPlayer.level().dimension();
-        state.lastSyncX = realPlayer.getX();
-        state.lastSyncY = realPlayer.getY();
-        state.lastSyncZ = realPlayer.getZ();
-        state.lastSyncYRot = realPlayer.getYRot();
-        state.lastSyncXRot = realPlayer.getXRot();
         EchoPlayerManager.copyRealStateToEcho(state, true);
         EchoPlayerManager.hideControllerBody(realPlayer);
     }
@@ -1293,31 +1289,31 @@ public class EchoPlayerManager {
         if (EchoPlayerManager.syncControllerSleepState(state)) {
             return;
         }
-        if (echoPlayer.isPassenger()) {
-            realPlayer.moveTo(echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
-            echoPlayer.setYRot(realPlayer.getYRot());
-            echoPlayer.setXRot(realPlayer.getXRot());
-            echoPlayer.yHeadRot = realPlayer.yHeadRot;
-            echoPlayer.yBodyRot = realPlayer.yBodyRot;
-            echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
-            EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
-            echoPlayer.setOnGround(echoPlayer.onGround());
-            echoPlayer.fallDistance = echoPlayer.fallDistance;
+        if (echoPlayer.level().dimension() != realPlayer.level().dimension()) {
+            echoPlayer.teleportTo(realPlayer.serverLevel(), realPlayer.getX(), realPlayer.getY(), realPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
         } else {
-            if (echoPlayer.level().dimension() != realPlayer.level().dimension()) {
-                echoPlayer.teleportTo(realPlayer.serverLevel(), realPlayer.getX(), realPlayer.getY(), realPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
-            } else {
-                echoPlayer.moveTo(realPlayer.getX(), realPlayer.getY(), realPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
-            }
-            echoPlayer.yHeadRot = realPlayer.yHeadRot;
-            echoPlayer.yBodyRot = realPlayer.yBodyRot;
-            echoPlayer.setPose(realPlayer.getPose());
-            echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
-            EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
-            echoPlayer.setOnGround(realPlayer.onGround());
-            echoPlayer.fallDistance = realPlayer.fallDistance;
-            echoPlayer.setDeltaMovement(realPlayer.getDeltaMovement());
+            echoPlayer.moveTo(realPlayer.getX(), realPlayer.getY(), realPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
         }
+        echoPlayer.yHeadRot = realPlayer.yHeadRot;
+        echoPlayer.yBodyRot = realPlayer.yBodyRot;
+        echoPlayer.setPose(realPlayer.getPose());
+        echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
+        EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
+        echoPlayer.setOnGround(realPlayer.onGround());
+        echoPlayer.fallDistance = realPlayer.fallDistance;
+        echoPlayer.setDeltaMovement(realPlayer.getDeltaMovement());
+    }
+
+    private static void copyRidingTransform(ServerPlayer source, EchoServerPlayer target) {
+        target.moveTo(source.getX(), source.getY(), source.getZ(), source.getYRot(), source.getXRot());
+        target.yHeadRot = source.yHeadRot;
+        target.yBodyRot = source.yBodyRot;
+        target.setPose(source.getPose());
+        target.setShiftKeyDown(source.isShiftKeyDown());
+        EchoPlayerManager.copySprintingState(source, target);
+        target.setOnGround(source.onGround());
+        target.fallDistance = source.fallDistance;
+        target.setDeltaMovement(source.getDeltaMovement());
     }
 
     public static void createCrashBackup(ServerPlayer player) {
@@ -2034,12 +2030,6 @@ public class EchoPlayerManager {
         private final float originalXpProgress;
         private final int originalXpTotal;
         private final CompoundTag originalAbilities;
-        private ResourceKey<Level> lastSyncDimension;
-        private double lastSyncX;
-        private double lastSyncY;
-        private double lastSyncZ;
-        private float lastSyncYRot;
-        private float lastSyncXRot;
         public ItemStack[] lastInventoryState;
         public float lastHealth;
         public int lastFoodLevel;
@@ -2087,12 +2077,6 @@ public class EchoPlayerManager {
             realPlayer.getFoodData().setSaturation(this.lastSaturation);
             realPlayer.getFoodData().setExhaustion(this.lastExhaustion);
             this.lastSyncGameMode = this.originalGameMode;
-            this.lastSyncDimension = realPlayer.level().dimension();
-            this.lastSyncX = realPlayer.getX();
-            this.lastSyncY = realPlayer.getY();
-            this.lastSyncZ = realPlayer.getZ();
-            this.lastSyncYRot = realPlayer.getYRot();
-            this.lastSyncXRot = realPlayer.getXRot();
         }
     }
 

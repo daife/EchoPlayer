@@ -12,11 +12,8 @@ import net.minecraft.network.chat.LastSeenMessages;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundSetPassengersPacket;
 import net.minecraft.network.protocol.game.ServerboundChatCommandPacket;
-import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
-import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -75,54 +72,16 @@ public abstract class MixinServerGamePacketListenerImpl {
     @Inject(method={"send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V"}, at={@At(value="HEAD")}, cancellable=true)
     private void onSendPacket(Packet<?> packet, PacketSendListener listener, CallbackInfo ci) {
         if (packet instanceof ClientboundSetPassengersPacket) {
-            EchoServerPlayer possessed;
             ClientboundSetPassengersPacket passengerPacket = (ClientboundSetPassengersPacket)packet;
-            if (EchoPlayerManager.isPossessing(this.player) && (possessed = EchoPlayerManager.getPossessed(this.player)) != null) {
-                int[] originalPassengers = passengerPacket.getPassengers();
-                boolean containsEcho = false;
-                for (int id : originalPassengers) {
-                    if (id != possessed.getId()) continue;
-                    containsEcho = true;
-                    break;
-                }
-                if (containsEcho) {
-                    int[] spoofedPassengers = new int[originalPassengers.length];
-                    for (int i = 0; i < originalPassengers.length; ++i) {
-                        spoofedPassengers[i] = originalPassengers[i] == possessed.getId() ? this.player.getId() : originalPassengers[i];
-                    }
-                    FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-                    buf.writeVarInt(passengerPacket.getVehicle());
-                    buf.writeVarIntArray(spoofedPassengers);
-                    ClientboundSetPassengersPacket spoofedPacket = new ClientboundSetPassengersPacket(buf);
-                    ci.cancel();
-                    this.send(spoofedPacket, listener);
-                }
+            int[] projectedPassengers = EchoPlayerManager.projectPassengerIdsForViewer(this.player, passengerPacket.getPassengers());
+            if (projectedPassengers != null) {
+                FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+                buf.writeVarInt(passengerPacket.getVehicle());
+                buf.writeVarIntArray(projectedPassengers);
+                ClientboundSetPassengersPacket projectedPacket = new ClientboundSetPassengersPacket(buf);
+                ci.cancel();
+                this.send(projectedPacket, listener);
             }
-        }
-    }
-
-    @Inject(method={"handlePlayerInput"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onHandlePlayerInput(ServerboundPlayerInputPacket packet, CallbackInfo ci) {
-        EchoServerPlayer possessed;
-        if (EchoPlayerManager.isPossessing(this.player) && (possessed = EchoPlayerManager.getPossessed(this.player)) != null) {
-            possessed.setPlayerInput(packet.getXxa(), packet.getZza(), packet.isJumping(), packet.isShiftKeyDown());
-            ci.cancel();
-        }
-    }
-
-    @Inject(method={"handleMoveVehicle"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onHandleMoveVehicle(ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
-        Entity vehicle;
-        EchoServerPlayer possessed;
-        if (EchoPlayerManager.isPossessing(this.player) && (possessed = EchoPlayerManager.getPossessed(this.player)) != null && (vehicle = possessed.getVehicle()) != null && vehicle.getControllingPassenger() == possessed) {
-            double x = packet.getX();
-            double y = packet.getY();
-            double z = packet.getZ();
-            float yRot = packet.getYRot();
-            float xRot = packet.getXRot();
-            vehicle.absMoveTo(x, y, z, yRot, xRot);
-            possessed.absMoveTo(x, y, z, yRot, xRot);
-            ci.cancel();
         }
     }
 }

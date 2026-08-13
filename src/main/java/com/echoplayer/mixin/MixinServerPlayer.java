@@ -8,7 +8,6 @@ import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.ServerStatsCounter;
 import net.minecraft.util.Unit;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -66,12 +65,4 @@ public class MixinServerPlayer {
         }
     }
 
-    @Inject(method={"startRiding(Lnet/minecraft/world/entity/Entity;Z)Z"}, at={@At(value="HEAD")}, cancellable=true)
-    private void onStartRiding(Entity vehicle, boolean force, CallbackInfoReturnable<Boolean> cir) {
-        EchoServerPlayer possessed;
-        ServerPlayer player = (ServerPlayer)((Object)this);
-        if (EchoPlayerManager.isPossessing(player) && (possessed = EchoPlayerManager.getPossessed(player)) != null) {
-            cir.setReturnValue(possessed.startRiding(vehicle, force));
-        }
-    }
 }
