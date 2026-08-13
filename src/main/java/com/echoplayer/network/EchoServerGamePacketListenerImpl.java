@@ -5,11 +5,14 @@ import com.echoplayer.manager.EchoPlayerManager;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBlockChangedAckPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetDataPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundCooldownPacket;
+import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
@@ -41,6 +44,15 @@ extends ServerGamePacketListenerImpl {
     }
 
     private boolean shouldProxy(Packet<?> packet) {
+        if (packet instanceof ClientboundBlockChangedAckPacket) {
+            return true;
+        }
+        if (packet instanceof ClientboundBlockUpdatePacket) {
+            return true;
+        }
+        if (packet instanceof ClientboundCustomPayloadPacket) {
+            return true;
+        }
         if (packet instanceof ClientboundContainerSetSlotPacket) {
             return true;
         }
