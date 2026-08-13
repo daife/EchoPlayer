@@ -16,6 +16,8 @@
                    "MixinServerGamePacketListenerImpl",
                    "MixinServerPlayerDamage",
                    "MixinServerPlayer",
+                   "MixinSleepStatus",
+                   "PlayerAccessor",
                    "MixinDamageSource",
                    "MixinAttributeCommand",
                    "MixinEffectCommands",

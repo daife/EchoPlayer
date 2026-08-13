@@ -135,7 +135,7 @@ extends ServerPlayer {
     public void tick() {
         long gameTime;
         super.tick();
-        if (!this.level().isClientSide && (this.isDeadOrDying() || EchoPlayerManager.shouldRunPassivePhysics(this)) && this.lastPassiveTick != (gameTime = this.level().getGameTime())) {
+        if (!this.level().isClientSide && (this.isDeadOrDying() || this.isSleeping() || EchoPlayerManager.shouldRunPassivePhysics(this)) && this.lastPassiveTick != (gameTime = this.level().getGameTime())) {
             this.lastPassiveTick = gameTime;
             this.doTick();
         }

@@ -8,6 +8,7 @@ import com.echoplayer.mixin.AttributeMapAccessor;
 import com.echoplayer.mixin.CommandSourceStackAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.mixin.MobEffectInstanceAccessor;
+import com.echoplayer.mixin.PlayerAccessor;
 import com.echoplayer.mixin.ServerGamePacketListenerImplAccessor;
 import com.echoplayer.network.EchoConnection;
 import com.echoplayer.network.EchoServerGamePacketListenerImpl;
@@ -37,6 +38,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -86,6 +88,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
@@ -177,6 +180,19 @@ public class EchoPlayerManager {
         ArrayList<ServerPlayer> projected = new ArrayList<ServerPlayer>(players.size());
         for (ServerPlayer player : players) {
             projected.add(EchoPlayerManager.projectSelectorPlayer(player));
+        }
+        return projected;
+    }
+
+    public static List<ServerPlayer> projectSleepStatusPlayers(List<ServerPlayer> players) {
+        if (CONTROLLERS.isEmpty()) {
+            return players;
+        }
+        ArrayList<ServerPlayer> projected = new ArrayList<ServerPlayer>(players.size());
+        for (ServerPlayer player : players) {
+            if (!CONTROLLERS.containsKey(player.getUUID())) {
+                projected.add(player);
+            }
         }
         return projected;
     }
@@ -646,6 +662,7 @@ public class EchoPlayerManager {
         if (session.authoritativeControllerId == null) {
             EchoPlayerManager.claimController(state);
         }
+        EchoPlayerManager.updateLogicalSleepStatus(state);
         if ((realVehicle = realPlayer.getVehicle()) != null) {
             realPlayer.stopRiding();
         }
@@ -1100,6 +1117,7 @@ public class EchoPlayerManager {
         shell.yHeadRot = realPlayer.yHeadRot;
         shell.yBodyRot = realPlayer.yBodyRot;
         EchoPlayerManager.copyRealStateToShell(realPlayer, shell);
+        EchoPlayerManager.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
         ClientboundPlayerInfoUpdatePacket addPacket = new ClientboundPlayerInfoUpdatePacket(actions, List.of(shell));
         for (ServerPlayer player : realPlayer.server.getPlayerList().getPlayers()) {
@@ -1255,6 +1273,10 @@ public class EchoPlayerManager {
         EchoServerPlayer echoPlayer = state.echoPlayer;
         boolean snap = realPlayer.level().dimension() != echoPlayer.level().dimension() || realPlayer.position().distanceToSqr(echoPlayer.position()) > 16.0;
         EchoPlayerManager.copyEchoSharedStateToRealController(state);
+        if (EchoPlayerManager.syncControllerSleepState(state)) {
+            EchoPlayerManager.sendControlSyncPacket(state, false, snap);
+            return;
+        }
         if (realPlayer.level().dimension() != echoPlayer.level().dimension()) {
             EchoPlayerManager.teleportRealPlayerToEcho(state, false);
         } else {
@@ -1340,6 +1362,9 @@ public class EchoPlayerManager {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
+            return;
+        }
+        if (EchoPlayerManager.syncControllerSleepState(state)) {
             return;
         }
         if (echoPlayer.isPassenger()) {
@@ -1452,6 +1477,7 @@ public class EchoPlayerManager {
     private static void restoreRealPlayerFromShell(ControllerState state, boolean teleport) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
+        EchoPlayerManager.clearMirroredSleep(state);
         EchoPlayerManager.copyInventoryContents(shellPlayer, realPlayer);
         EchoPlayerManager.setGameModeIfNeeded(realPlayer, shellPlayer.gameMode.getGameModeForPlayer());
         EchoPlayerManager.synchronizeEffects(shellPlayer, realPlayer);
@@ -1470,6 +1496,99 @@ public class EchoPlayerManager {
         realPlayer.containerMenu.broadcastChanges();
         if (teleport) {
             EchoPlayerManager.teleportRealPlayerToShell(state);
+        }
+        if (shellPlayer.isSleeping()) {
+            EchoPlayerManager.transferSleepingState(shellPlayer, realPlayer);
+            realPlayer.serverLevel().updateSleepingPlayerList();
+        }
+    }
+
+    public static EchoServerPlayer getSleepTarget(ServerPlayer realPlayer) {
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        return state != null && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying() ? state.echoPlayer : null;
+    }
+
+    public static void mirrorPossessedSleep(ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        if (state != null && state.echoPlayer == echoPlayer) {
+            EchoPlayerManager.syncControllerSleepState(state);
+        }
+    }
+
+    public static boolean stopPossessedSleep(ServerPlayer realPlayer, boolean wakeImmediately, boolean updateLevel) {
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        if (state == null) {
+            return false;
+        }
+        if (!EchoPlayerManager.isAuthoritativeController(state)) {
+            EchoPlayerManager.syncControllerSleepState(state);
+            return true;
+        }
+        if (state.echoPlayer.isSleeping()) {
+            state.echoPlayer.stopSleepInBed(wakeImmediately, updateLevel);
+        }
+        EchoPlayerManager.clearMirroredSleep(state);
+        return true;
+    }
+
+    private static boolean syncControllerSleepState(ControllerState state) {
+        ServerPlayer realPlayer = state.realPlayer;
+        EchoServerPlayer echoPlayer = state.echoPlayer;
+        Optional<BlockPos> sleepingPos = echoPlayer.getSleepingPos();
+        if (sleepingPos.isEmpty()) {
+            EchoPlayerManager.clearMirroredSleep(state);
+            return false;
+        }
+        BlockPos bedPos = sleepingPos.get();
+        if (!realPlayer.getSleepingPos().filter(bedPos::equals).isPresent()) {
+            realPlayer.setPose(Pose.SLEEPING);
+            realPlayer.setSleepingPos(bedPos);
+        }
+        realPlayer.absMoveTo(echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), echoPlayer.getYRot(), echoPlayer.getXRot());
+        realPlayer.setDeltaMovement(echoPlayer.getDeltaMovement());
+        EchoPlayerManager.syncConnectionPosition(realPlayer, echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ());
+        return true;
+    }
+
+    private static void clearMirroredSleep(ControllerState state) {
+        ServerPlayer realPlayer = state.realPlayer;
+        if (!realPlayer.isSleeping()) {
+            return;
+        }
+        realPlayer.clearSleepingPos();
+        realPlayer.setPose(Pose.STANDING);
+        EchoServerPlayer echoPlayer = state.echoPlayer;
+        if (!echoPlayer.isRemoved()) {
+            EchoPlayerManager.teleportRealPlayerToEcho(state, true);
+        }
+    }
+
+    private static void transferSleepingState(ServerPlayer from, ServerPlayer to) {
+        Optional<BlockPos> sleepingPos = from.getSleepingPos();
+        if (sleepingPos.isEmpty()) {
+            return;
+        }
+        BlockPos bedPos = sleepingPos.get();
+        int sleepTimer = ((PlayerAccessor)((Object)from)).echoplayer$getSleepCounter();
+        from.clearSleepingPos();
+        from.setPose(Pose.STANDING);
+        to.absMoveTo(from.getX(), from.getY(), from.getZ(), from.getYRot(), from.getXRot());
+        to.setPose(Pose.SLEEPING);
+        to.setSleepingPos(bedPos);
+        ((PlayerAccessor)((Object)to)).echoplayer$setSleepCounter(sleepTimer);
+        to.setDeltaMovement(from.getDeltaMovement());
+        var bedState = to.level().getBlockState(bedPos);
+        if (bedState.isBed(to.level(), bedPos, to)) {
+            bedState.setBedOccupied(to.level(), bedPos, to, true);
+        }
+    }
+
+    private static void updateLogicalSleepStatus(ControllerState state) {
+        ServerLevel shellLevel = state.shellPlayer.serverLevel();
+        ServerLevel echoLevel = state.echoPlayer.serverLevel();
+        shellLevel.updateSleepingPlayerList();
+        if (echoLevel != shellLevel) {
+            echoLevel.updateSleepingPlayerList();
         }
     }
 
