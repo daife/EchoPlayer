@@ -1,15 +1,11 @@
 package com.echoplayer.mixin;
 
-import net.minecraft.network.Connection;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(value={ServerGamePacketListenerImpl.class})
 public interface ServerGamePacketListenerImplAccessor {
-    @Accessor(value="connection")
-    public Connection getConnection();
-
     @Accessor(value="firstGoodX")
     public void echoplayer$setFirstGoodX(double var1);
 
@@ -28,4 +24,3 @@ public interface ServerGamePacketListenerImplAccessor {
     @Accessor(value="lastGoodZ")
     public void echoplayer$setLastGoodZ(double var1);
 }
-

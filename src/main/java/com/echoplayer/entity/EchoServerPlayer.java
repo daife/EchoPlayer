@@ -79,11 +79,6 @@ extends ServerPlayer {
         super.travel(pTravelVector);
     }
 
-    @Override
-    public boolean causeFallDamage(float fallDistance, float damageMultiplier, DamageSource damageSource) {
-        return super.causeFallDamage(fallDistance, damageMultiplier, damageSource);
-    }
-
     public void restoreAfterControllerBodyDeath(float health) {
         if (this.isRemoved()) {
             this.unsetRemoved();
