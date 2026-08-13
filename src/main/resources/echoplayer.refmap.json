@@ -1,0 +1,272 @@
+{
+  "mappings": {
+    "com/echoplayer/mixin/MixinItemEntity": {
+      "Lnet/minecraft/world/entity/player/Inventory;add(Lnet/minecraft/world/item/ItemStack;)Z": "Lnet/minecraft/world/entity/player/Inventory;m_36054_(Lnet/minecraft/world/item/ItemStack;)Z",
+      "playerTouch": "Lnet/minecraft/world/entity/item/ItemEntity;m_6123_(Lnet/minecraft/world/entity/player/Player;)V"
+    },
+    "com/echoplayer/mixin/MixinProjectile": {
+      "shootFromRotation": "Lnet/minecraft/world/entity/projectile/Projectile;m_37251_(Lnet/minecraft/world/entity/Entity;FFFFF)V",
+      "canHitEntity": "Lnet/minecraft/world/entity/projectile/Projectile;m_5603_(Lnet/minecraft/world/entity/Entity;)Z"
+    },
+    "com/echoplayer/mixin/MixinEntitySelector": {
+      "findPlayers": "Lnet/minecraft/commands/arguments/selector/EntitySelector;m_121166_(Lnet/minecraft/commands/CommandSourceStack;)Ljava/util/List;",
+      "Lnet/minecraft/server/level/ServerLevel;getPlayers(Ljava/util/function/Predicate;I)Ljava/util/List;": "Lnet/minecraft/server/level/ServerLevel;m_261156_(Ljava/util/function/Predicate;I)Ljava/util/List;",
+      "findEntities": "Lnet/minecraft/commands/arguments/selector/EntitySelector;m_121160_(Lnet/minecraft/commands/CommandSourceStack;)Ljava/util/List;",
+      "Lnet/minecraft/server/players/PlayerList;getPlayerByName(Ljava/lang/String;)Lnet/minecraft/server/level/ServerPlayer;": "Lnet/minecraft/server/players/PlayerList;m_11255_(Ljava/lang/String;)Lnet/minecraft/server/level/ServerPlayer;",
+      "Lnet/minecraft/server/players/PlayerList;getPlayer(Ljava/util/UUID;)Lnet/minecraft/server/level/ServerPlayer;": "Lnet/minecraft/server/players/PlayerList;m_11259_(Ljava/util/UUID;)Lnet/minecraft/server/level/ServerPlayer;",
+      "Lnet/minecraft/server/players/PlayerList;getPlayers()Ljava/util/List;": "Lnet/minecraft/server/players/PlayerList;m_11314_()Ljava/util/List;"
+    },
+    "com/echoplayer/mixin/MixinExperienceOrb": {
+      "Lnet/minecraft/world/entity/ExperienceOrb;repairPlayerItems(Lnet/minecraft/world/entity/player/Player;I)I": "Lnet/minecraft/world/entity/ExperienceOrb;m_147092_(Lnet/minecraft/world/entity/player/Player;I)I",
+      "Lnet/minecraft/world/entity/player/Player;giveExperiencePoints(I)V": "Lnet/minecraft/world/entity/player/Player;m_6756_(I)V",
+      "playerTouch": "Lnet/minecraft/world/entity/ExperienceOrb;m_6123_(Lnet/minecraft/world/entity/player/Player;)V"
+    },
+    "com/echoplayer/mixin/CommandSourceStackAccessor": {
+      "source": "f_81288_:Lnet/minecraft/commands/CommandSource;"
+    },
+    "com/echoplayer/mixin/MixinChunkMapTrackedEntity": {
+      "updatePlayer": "Lnet/minecraft/server/level/ChunkMap$TrackedEntity;m_140497_(Lnet/minecraft/server/level/ServerPlayer;)V",
+      "net.minecraft.server.level.ChunkMap$TrackedEntity": "net/minecraft/server/level/ChunkMap$TrackedEntity"
+    },
+    "com/echoplayer/mixin/ExperienceOrbInvoker": {
+      "repairPlayerItems": "m_147092_(Lnet/minecraft/world/entity/player/Player;I)I"
+    },
+    "com/echoplayer/mixin/MixinEntity": {
+      "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+    },
+    "com/echoplayer/mixin/MixinAttributeCommand": {
+      "setAttributeBase": "Lnet/minecraft/server/commands/AttributeCommand;m_245136_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;D)I",
+      "addModifier": "Lnet/minecraft/server/commands/AttributeCommand;m_136469_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;Ljava/util/UUID;Ljava/lang/String;DLnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)I",
+      "removeModifier": "Lnet/minecraft/server/commands/AttributeCommand;m_136458_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;Ljava/util/UUID;)I"
+    },
+    "com/echoplayer/mixin/ServerGamePacketListenerImplAccessor": {
+      "lastGoodX": "f_9756_:D",
+      "connection": "f_9742_:Lnet/minecraft/network/Connection;",
+      "firstGoodY": "f_9754_:D",
+      "lastGoodY": "f_9757_:D",
+      "firstGoodZ": "f_9755_:D",
+      "lastGoodZ": "f_9758_:D",
+      "firstGoodX": "f_9753_:D"
+    },
+    "com/echoplayer/mixin/client/MixinClientPacketListener": {
+      "onDisconnect": "Lnet/minecraft/client/multiplayer/ClientPacketListener;m_7026_(Lnet/minecraft/network/chat/Component;)V"
+    },
+    "com/echoplayer/mixin/MixinPlayerAttack": {
+      "attack": "Lnet/minecraft/world/entity/player/Player;m_5706_(Lnet/minecraft/world/entity/Entity;)V"
+    },
+    "com/echoplayer/mixin/MixinServerPlayer": {
+      "startRiding(Lnet/minecraft/world/entity/Entity;Z)Z": "Lnet/minecraft/server/level/ServerPlayer;m_7998_(Lnet/minecraft/world/entity/Entity;Z)Z",
+      "getStats": "Lnet/minecraft/server/level/ServerPlayer;m_8951_()Lnet/minecraft/stats/ServerStatsCounter;",
+      "getPermissionLevel": "Lnet/minecraft/server/level/ServerPlayer;m_8088_()I",
+      "getAdvancements": "Lnet/minecraft/server/level/ServerPlayer;m_8960_()Lnet/minecraft/server/PlayerAdvancements;"
+    },
+    "com/echoplayer/mixin/MixinDamageSource": {
+      "<init>(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;)V": "Lnet/minecraft/world/damagesource/DamageSource;<init>(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;)V"
+    },
+    "com/echoplayer/mixin/LivingEntityInvoker": {
+      "detectEquipmentUpdates": "m_21315_()V",
+      "tickEffects": "m_21217_()V"
+    },
+    "com/echoplayer/mixin/MixinMinecraft": {
+      "clearLevel(Lnet/minecraft/client/gui/screens/Screen;)V": "Lnet/minecraft/client/Minecraft;m_91320_(Lnet/minecraft/client/gui/screens/Screen;)V"
+    },
+    "com/echoplayer/mixin/MixinServerPlayerDamage": {
+      "hurt": "Lnet/minecraft/server/level/ServerPlayer;m_6469_(Lnet/minecraft/world/damagesource/DamageSource;F)Z"
+    },
+    "com/echoplayer/mixin/MixinPlayerList": {
+      "respawn": "Lnet/minecraft/server/players/PlayerList;m_11236_(Lnet/minecraft/server/level/ServerPlayer;Z)Lnet/minecraft/server/level/ServerPlayer;",
+      "placeNewPlayer": "Lnet/minecraft/server/players/PlayerList;m_11261_(Lnet/minecraft/network/Connection;Lnet/minecraft/server/level/ServerPlayer;)V",
+      "broadcastChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;Ljava/util/function/Predicate;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V": "Lnet/minecraft/server/players/PlayerList;m_245148_(Lnet/minecraft/network/chat/PlayerChatMessage;Ljava/util/function/Predicate;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V",
+      "Lnet/minecraft/network/chat/OutgoingChatMessage;create(Lnet/minecraft/network/chat/PlayerChatMessage;)Lnet/minecraft/network/chat/OutgoingChatMessage;": "Lnet/minecraft/network/chat/OutgoingChatMessage;m_247282_(Lnet/minecraft/network/chat/PlayerChatMessage;)Lnet/minecraft/network/chat/OutgoingChatMessage;"
+    },
+    "com/echoplayer/mixin/MixinBoatItem": {
+      "use": "Lnet/minecraft/world/item/BoatItem;m_7203_(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResultHolder;",
+      "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;)Ljava/util/List;": "Lnet/minecraft/world/level/Level;m_6249_(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;)Ljava/util/List;"
+    },
+    "com/echoplayer/mixin/AttributeInstanceAccessor": {
+      "permanentModifiers": "f_22091_:Ljava/util/Set;",
+      "setDirty": "m_22129_()V"
+    },
+    "com/echoplayer/mixin/client/MixinAbstractClientPlayer": {
+      "getSkinTextureLocation": "Lnet/minecraft/client/player/AbstractClientPlayer;m_108560_()Lnet/minecraft/resources/ResourceLocation;",
+      "getModelName": "Lnet/minecraft/client/player/AbstractClientPlayer;m_108564_()Ljava/lang/String;"
+    },
+    "com/echoplayer/mixin/MobEffectInstanceAccessor": {
+      "duration": "f_19503_:I"
+    },
+    "com/echoplayer/mixin/MixinServerGamePacketListenerImpl": {
+      "onDisconnect": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_7026_(Lnet/minecraft/network/chat/Component;)V",
+      "Lnet/minecraft/server/level/ServerPlayer;createCommandSourceStack()Lnet/minecraft/commands/CommandSourceStack;": "Lnet/minecraft/server/level/ServerPlayer;m_20203_()Lnet/minecraft/commands/CommandSourceStack;",
+      "handlePlayerInput": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5918_(Lnet/minecraft/network/protocol/game/ServerboundPlayerInputPacket;)V",
+      "performChatCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_246958_(Lnet/minecraft/network/protocol/game/ServerboundChatCommandPacket;Lnet/minecraft/network/chat/LastSeenMessages;)V",
+      "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_243119_(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V",
+      "Lnet/minecraft/server/players/PlayerList;broadcastChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V": "Lnet/minecraft/server/players/PlayerList;m_243049_(Lnet/minecraft/network/chat/PlayerChatMessage;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V",
+      "broadcastChatMessage": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_243086_(Lnet/minecraft/network/chat/PlayerChatMessage;)V",
+      "handleMoveVehicle": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5659_(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V",
+      "parseCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_242658_(Ljava/lang/String;)Lcom/mojang/brigadier/ParseResults;"
+    },
+    "com/echoplayer/mixin/MixinEntityPush": {
+      "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
+    },
+    "com/echoplayer/mixin/MixinMinecraftServer": {
+      "getChatDecorator": "Lnet/minecraft/server/MinecraftServer;m_236742_()Lnet/minecraft/network/chat/ChatDecorator;",
+      "tickChildren": "Lnet/minecraft/server/MinecraftServer;m_5703_(Ljava/util/function/BooleanSupplier;)V"
+    },
+    "com/echoplayer/mixin/AttributeMapAccessor": {
+      "dirtyAttributes": "f_22140_:Ljava/util/Set;",
+      "onAttributeModified": "m_22157_(Lnet/minecraft/world/entity/ai/attributes/AttributeInstance;)V",
+      "attributes": "f_22139_:Ljava/util/Map;"
+    },
+    "com/echoplayer/mixin/client/MixinEntityClient": {
+      "isInvisible": "Lnet/minecraft/world/entity/Entity;m_20145_()Z",
+      "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+    },
+    "com/echoplayer/mixin/MixinLivingEntityEffects": {
+      "tickEffects": "Lnet/minecraft/world/entity/LivingEntity;m_21217_()V"
+    },
+    "com/echoplayer/mixin/MixinEffectCommands": {
+      "clearEffects": "Lnet/minecraft/server/commands/EffectCommands;m_136959_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;)I",
+      "giveEffect": "Lnet/minecraft/server/commands/EffectCommands;m_247240_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;Lnet/minecraft/core/Holder;Ljava/lang/Integer;IZ)I",
+      "clearEffect": "Lnet/minecraft/server/commands/EffectCommands;m_246113_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;Lnet/minecraft/core/Holder;)I"
+    },
+    "com/echoplayer/mixin/MixinServerEntity": {
+      "addPairing": "Lnet/minecraft/server/level/ServerEntity;m_8541_(Lnet/minecraft/server/level/ServerPlayer;)V"
+    }
+  },
+  "data": {
+    "searge": {
+      "com/echoplayer/mixin/MixinItemEntity": {
+        "Lnet/minecraft/world/entity/player/Inventory;add(Lnet/minecraft/world/item/ItemStack;)Z": "Lnet/minecraft/world/entity/player/Inventory;m_36054_(Lnet/minecraft/world/item/ItemStack;)Z",
+        "playerTouch": "Lnet/minecraft/world/entity/item/ItemEntity;m_6123_(Lnet/minecraft/world/entity/player/Player;)V"
+      },
+      "com/echoplayer/mixin/MixinProjectile": {
+        "shootFromRotation": "Lnet/minecraft/world/entity/projectile/Projectile;m_37251_(Lnet/minecraft/world/entity/Entity;FFFFF)V",
+        "canHitEntity": "Lnet/minecraft/world/entity/projectile/Projectile;m_5603_(Lnet/minecraft/world/entity/Entity;)Z"
+      },
+      "com/echoplayer/mixin/MixinEntitySelector": {
+        "findPlayers": "Lnet/minecraft/commands/arguments/selector/EntitySelector;m_121166_(Lnet/minecraft/commands/CommandSourceStack;)Ljava/util/List;",
+        "Lnet/minecraft/server/level/ServerLevel;getPlayers(Ljava/util/function/Predicate;I)Ljava/util/List;": "Lnet/minecraft/server/level/ServerLevel;m_261156_(Ljava/util/function/Predicate;I)Ljava/util/List;",
+        "findEntities": "Lnet/minecraft/commands/arguments/selector/EntitySelector;m_121160_(Lnet/minecraft/commands/CommandSourceStack;)Ljava/util/List;",
+        "Lnet/minecraft/server/players/PlayerList;getPlayerByName(Ljava/lang/String;)Lnet/minecraft/server/level/ServerPlayer;": "Lnet/minecraft/server/players/PlayerList;m_11255_(Ljava/lang/String;)Lnet/minecraft/server/level/ServerPlayer;",
+        "Lnet/minecraft/server/players/PlayerList;getPlayer(Ljava/util/UUID;)Lnet/minecraft/server/level/ServerPlayer;": "Lnet/minecraft/server/players/PlayerList;m_11259_(Ljava/util/UUID;)Lnet/minecraft/server/level/ServerPlayer;",
+        "Lnet/minecraft/server/players/PlayerList;getPlayers()Ljava/util/List;": "Lnet/minecraft/server/players/PlayerList;m_11314_()Ljava/util/List;"
+      },
+      "com/echoplayer/mixin/MixinExperienceOrb": {
+        "Lnet/minecraft/world/entity/ExperienceOrb;repairPlayerItems(Lnet/minecraft/world/entity/player/Player;I)I": "Lnet/minecraft/world/entity/ExperienceOrb;m_147092_(Lnet/minecraft/world/entity/player/Player;I)I",
+        "Lnet/minecraft/world/entity/player/Player;giveExperiencePoints(I)V": "Lnet/minecraft/world/entity/player/Player;m_6756_(I)V",
+        "playerTouch": "Lnet/minecraft/world/entity/ExperienceOrb;m_6123_(Lnet/minecraft/world/entity/player/Player;)V"
+      },
+      "com/echoplayer/mixin/CommandSourceStackAccessor": {
+        "source": "f_81288_:Lnet/minecraft/commands/CommandSource;"
+      },
+      "com/echoplayer/mixin/MixinChunkMapTrackedEntity": {
+        "updatePlayer": "Lnet/minecraft/server/level/ChunkMap$TrackedEntity;m_140497_(Lnet/minecraft/server/level/ServerPlayer;)V",
+        "net.minecraft.server.level.ChunkMap$TrackedEntity": "net/minecraft/server/level/ChunkMap$TrackedEntity"
+      },
+      "com/echoplayer/mixin/ExperienceOrbInvoker": {
+        "repairPlayerItems": "m_147092_(Lnet/minecraft/world/entity/player/Player;I)I"
+      },
+      "com/echoplayer/mixin/MixinEntity": {
+        "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+      },
+      "com/echoplayer/mixin/MixinAttributeCommand": {
+        "setAttributeBase": "Lnet/minecraft/server/commands/AttributeCommand;m_245136_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;D)I",
+        "addModifier": "Lnet/minecraft/server/commands/AttributeCommand;m_136469_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;Ljava/util/UUID;Ljava/lang/String;DLnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)I",
+        "removeModifier": "Lnet/minecraft/server/commands/AttributeCommand;m_136458_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;Ljava/util/UUID;)I"
+      },
+      "com/echoplayer/mixin/ServerGamePacketListenerImplAccessor": {
+        "lastGoodX": "f_9756_:D",
+        "connection": "f_9742_:Lnet/minecraft/network/Connection;",
+        "firstGoodY": "f_9754_:D",
+        "lastGoodY": "f_9757_:D",
+        "firstGoodZ": "f_9755_:D",
+        "lastGoodZ": "f_9758_:D",
+        "firstGoodX": "f_9753_:D"
+      },
+      "com/echoplayer/mixin/client/MixinClientPacketListener": {
+        "onDisconnect": "Lnet/minecraft/client/multiplayer/ClientPacketListener;m_7026_(Lnet/minecraft/network/chat/Component;)V"
+      },
+      "com/echoplayer/mixin/MixinPlayerAttack": {
+        "attack": "Lnet/minecraft/world/entity/player/Player;m_5706_(Lnet/minecraft/world/entity/Entity;)V"
+      },
+      "com/echoplayer/mixin/MixinServerPlayer": {
+        "startRiding(Lnet/minecraft/world/entity/Entity;Z)Z": "Lnet/minecraft/server/level/ServerPlayer;m_7998_(Lnet/minecraft/world/entity/Entity;Z)Z",
+        "getStats": "Lnet/minecraft/server/level/ServerPlayer;m_8951_()Lnet/minecraft/stats/ServerStatsCounter;",
+        "getPermissionLevel": "Lnet/minecraft/server/level/ServerPlayer;m_8088_()I",
+        "getAdvancements": "Lnet/minecraft/server/level/ServerPlayer;m_8960_()Lnet/minecraft/server/PlayerAdvancements;"
+      },
+      "com/echoplayer/mixin/MixinDamageSource": {
+        "<init>(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;)V": "Lnet/minecraft/world/damagesource/DamageSource;<init>(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;)V"
+      },
+      "com/echoplayer/mixin/LivingEntityInvoker": {
+        "detectEquipmentUpdates": "m_21315_()V",
+        "tickEffects": "m_21217_()V"
+      },
+      "com/echoplayer/mixin/MixinMinecraft": {
+        "clearLevel(Lnet/minecraft/client/gui/screens/Screen;)V": "Lnet/minecraft/client/Minecraft;m_91320_(Lnet/minecraft/client/gui/screens/Screen;)V"
+      },
+      "com/echoplayer/mixin/MixinServerPlayerDamage": {
+        "hurt": "Lnet/minecraft/server/level/ServerPlayer;m_6469_(Lnet/minecraft/world/damagesource/DamageSource;F)Z"
+      },
+      "com/echoplayer/mixin/MixinPlayerList": {
+        "respawn": "Lnet/minecraft/server/players/PlayerList;m_11236_(Lnet/minecraft/server/level/ServerPlayer;Z)Lnet/minecraft/server/level/ServerPlayer;",
+        "placeNewPlayer": "Lnet/minecraft/server/players/PlayerList;m_11261_(Lnet/minecraft/network/Connection;Lnet/minecraft/server/level/ServerPlayer;)V",
+        "broadcastChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;Ljava/util/function/Predicate;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V": "Lnet/minecraft/server/players/PlayerList;m_245148_(Lnet/minecraft/network/chat/PlayerChatMessage;Ljava/util/function/Predicate;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V",
+        "Lnet/minecraft/network/chat/OutgoingChatMessage;create(Lnet/minecraft/network/chat/PlayerChatMessage;)Lnet/minecraft/network/chat/OutgoingChatMessage;": "Lnet/minecraft/network/chat/OutgoingChatMessage;m_247282_(Lnet/minecraft/network/chat/PlayerChatMessage;)Lnet/minecraft/network/chat/OutgoingChatMessage;"
+      },
+      "com/echoplayer/mixin/MixinBoatItem": {
+        "use": "Lnet/minecraft/world/item/BoatItem;m_7203_(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResultHolder;",
+        "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;)Ljava/util/List;": "Lnet/minecraft/world/level/Level;m_6249_(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;)Ljava/util/List;"
+      },
+      "com/echoplayer/mixin/AttributeInstanceAccessor": {
+        "permanentModifiers": "f_22091_:Ljava/util/Set;",
+        "setDirty": "m_22129_()V"
+      },
+      "com/echoplayer/mixin/client/MixinAbstractClientPlayer": {
+        "getSkinTextureLocation": "Lnet/minecraft/client/player/AbstractClientPlayer;m_108560_()Lnet/minecraft/resources/ResourceLocation;",
+        "getModelName": "Lnet/minecraft/client/player/AbstractClientPlayer;m_108564_()Ljava/lang/String;"
+      },
+      "com/echoplayer/mixin/MobEffectInstanceAccessor": {
+        "duration": "f_19503_:I"
+      },
+      "com/echoplayer/mixin/MixinServerGamePacketListenerImpl": {
+        "onDisconnect": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_7026_(Lnet/minecraft/network/chat/Component;)V",
+        "Lnet/minecraft/server/level/ServerPlayer;createCommandSourceStack()Lnet/minecraft/commands/CommandSourceStack;": "Lnet/minecraft/server/level/ServerPlayer;m_20203_()Lnet/minecraft/commands/CommandSourceStack;",
+        "handlePlayerInput": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5918_(Lnet/minecraft/network/protocol/game/ServerboundPlayerInputPacket;)V",
+        "performChatCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_246958_(Lnet/minecraft/network/protocol/game/ServerboundChatCommandPacket;Lnet/minecraft/network/chat/LastSeenMessages;)V",
+        "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_243119_(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V",
+        "Lnet/minecraft/server/players/PlayerList;broadcastChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V": "Lnet/minecraft/server/players/PlayerList;m_243049_(Lnet/minecraft/network/chat/PlayerChatMessage;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/network/chat/ChatType$Bound;)V",
+        "broadcastChatMessage": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_243086_(Lnet/minecraft/network/chat/PlayerChatMessage;)V",
+        "handleMoveVehicle": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_5659_(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V",
+        "parseCommand": "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;m_242658_(Ljava/lang/String;)Lcom/mojang/brigadier/ParseResults;"
+      },
+      "com/echoplayer/mixin/MixinEntityPush": {
+        "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
+      },
+      "com/echoplayer/mixin/MixinMinecraftServer": {
+        "getChatDecorator": "Lnet/minecraft/server/MinecraftServer;m_236742_()Lnet/minecraft/network/chat/ChatDecorator;",
+        "tickChildren": "Lnet/minecraft/server/MinecraftServer;m_5703_(Ljava/util/function/BooleanSupplier;)V"
+      },
+      "com/echoplayer/mixin/AttributeMapAccessor": {
+        "dirtyAttributes": "f_22140_:Ljava/util/Set;",
+        "onAttributeModified": "m_22157_(Lnet/minecraft/world/entity/ai/attributes/AttributeInstance;)V",
+        "attributes": "f_22139_:Ljava/util/Map;"
+      },
+      "com/echoplayer/mixin/client/MixinEntityClient": {
+        "isInvisible": "Lnet/minecraft/world/entity/Entity;m_20145_()Z",
+        "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+      },
+      "com/echoplayer/mixin/MixinLivingEntityEffects": {
+        "tickEffects": "Lnet/minecraft/world/entity/LivingEntity;m_21217_()V"
+      },
+      "com/echoplayer/mixin/MixinEffectCommands": {
+        "clearEffects": "Lnet/minecraft/server/commands/EffectCommands;m_136959_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;)I",
+        "giveEffect": "Lnet/minecraft/server/commands/EffectCommands;m_247240_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;Lnet/minecraft/core/Holder;Ljava/lang/Integer;IZ)I",
+        "clearEffect": "Lnet/minecraft/server/commands/EffectCommands;m_246113_(Lnet/minecraft/commands/CommandSourceStack;Ljava/util/Collection;Lnet/minecraft/core/Holder;)I"
+      },
+      "com/echoplayer/mixin/MixinServerEntity": {
+        "addPairing": "Lnet/minecraft/server/level/ServerEntity;m_8541_(Lnet/minecraft/server/level/ServerPlayer;)V"
+      }
+    }
+  }
+}

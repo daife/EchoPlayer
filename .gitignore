@@ -1,0 +1,37 @@
+# Gradle build and local state
+.gradle/
+build/
+out/
+bin/
+
+# Forge development runtime
+run/
+runs/
+
+# IDE and editor metadata
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# Local tooling caches
+.codegraph/
+
+# Logs and JVM crash diagnostics
+*.log
+hs_err_pid*
+replay_pid*
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.swp
+*~

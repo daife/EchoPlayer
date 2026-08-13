@@ -1,0 +1,25 @@
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "MIT"
+
+[[mods]]
+modId = "echoplayer"
+version = "1.0.0"
+displayName = "EchoPlayer"
+logoFile = "echoplayer.png"
+authors = "Theus452"
+description = '''Summon persistent virtual player echoes, possess them directly, and connect automation or AI controllers without running additional game clients.'''
+
+[[dependencies.echoplayer]]
+modId = "forge"
+mandatory = true
+versionRange = "[47.4.22,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.echoplayer]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20.1]"
+ordering = "NONE"
+side = "BOTH"
