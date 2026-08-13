@@ -151,6 +151,15 @@ public class EchoPlayerManager {
         return state.echoPlayer;
     }
 
+    public static ServerPlayer getGameplayPlayer(ServerPlayer authenticatedPlayer) {
+        ControllerState state = CONTROLLERS.get(authenticatedPlayer.getUUID());
+        if (state == null || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying()) {
+            return authenticatedPlayer;
+        }
+        EchoPlayerManager.claimController(state);
+        return state.echoPlayer;
+    }
+
     public static Entity getLogicalDamageEntity(Entity entity) {
         if (entity instanceof ServerPlayer) {
             ServerPlayer player = (ServerPlayer)entity;
