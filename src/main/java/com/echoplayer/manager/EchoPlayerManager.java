@@ -49,6 +49,7 @@ import java.util.regex.Pattern;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -111,6 +112,17 @@ public class EchoPlayerManager {
     private static final Map<UUID, ControllerState> CONTROLLERS = new ConcurrentHashMap<UUID, ControllerState>();
     private static final Map<UUID, PossessionSession> SESSIONS = new ConcurrentHashMap<UUID, PossessionSession>();
     private static final Map<UUID, PendingEchoReshow> PENDING_ECHO_RESHOWS = new ConcurrentHashMap<UUID, PendingEchoReshow>();
+
+    public static GameProfile createStableProfile(String name) {
+        return new GameProfile(UUIDUtil.createOfflinePlayerUUID(name), name);
+    }
+
+    public static UUID getLogicalOwnerUUID(Player player) {
+        if (player instanceof ServerPlayer) {
+            return EchoPlayerManager.getLogicalPlayer((ServerPlayer)player).getUUID();
+        }
+        return player.getUUID();
+    }
 
     public static ServerPlayer getPossessor(EchoServerPlayer echoPlayer) {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());

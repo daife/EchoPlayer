@@ -18,6 +18,7 @@
                    "MixinServerPlayerDamage",
                    "MixinServerPlayer",
                    "MixinSleepStatus",
+                   "MixinTamableAnimal",
                    "PlayerAccessor",
                    "MixinDamageSource",
                    "MixinAttributeCommand",

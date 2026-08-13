@@ -10,11 +10,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import java.util.List;
-import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -31,8 +29,7 @@ public class EchoPlayerCommand {
             }
             MinecraftServer server = source.getServer();
             ServerLevel level = source.getLevel();
-            UUID offlineUuid = UUIDUtil.createOfflinePlayerUUID(name);
-            GameProfile profile = new GameProfile(offlineUuid, name);
+            GameProfile profile = EchoPlayerManager.createStableProfile(name);
             String conflict = EchoPlayerManager.getSpawnConflict(server, profile);
             if (conflict != null) {
                 source.sendFailure(Component.literal(conflict));
