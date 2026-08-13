@@ -146,7 +146,7 @@ extends ServerPlayer {
     protected void tickDeath() {
         super.tickDeath();
         if (!this.level().isClientSide && this.isRemoved()) {
-            EchoPlayerManager.finalizeEchoDeath(this);
+            EchoPlayerManager.respawnEchoAfterDeath(this);
         }
     }
 

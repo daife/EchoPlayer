@@ -476,10 +476,6 @@ public class EchoPlayerManager {
     }
 
     private static EchoServerPlayer createEchoPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, boolean persistent) {
-        UUID uuid = profile.getId();
-        if (uuid != null) {
-            EchoPlayerManager.deleteInvalidEchoPlayerData(server, uuid);
-        }
         EchoServerPlayer echoPlayer = new EchoServerPlayer(server, level, profile);
         EchoConnection connection = new EchoConnection(PacketFlow.SERVERBOUND);
         server.getPlayerList().placeNewPlayer(connection, echoPlayer);
@@ -831,12 +827,12 @@ public class EchoPlayerManager {
         }
     }
 
-    public static void finalizeEchoDeath(EchoServerPlayer echoPlayer) {
+    public static void respawnEchoAfterDeath(EchoServerPlayer echoPlayer) {
         if (echoPlayer.linkedRealPlayer != null) {
             return;
         }
         SESSIONS.remove(echoPlayer.getUUID());
-        EchoPlayerManager.removeEchoPlayerEntityAndData(echoPlayer);
+        echoPlayer.server.getPlayerList().respawn(echoPlayer, false);
     }
 
     public static void prepareEchoForDeath(EchoServerPlayer echoPlayer) {
@@ -1980,23 +1976,6 @@ public class EchoPlayerManager {
         }
         EchoPlayerSavedData.get(server).removeEchoPlayer(echoPlayer.getUUID());
         EchoPlayerManager.deletePlayerDataFiles(server, echoPlayer.getUUID());
-    }
-
-    private static void deleteInvalidEchoPlayerData(MinecraftServer server, UUID uuid) {
-        Path dataFile = EchoPlayerManager.getPlayerDataPath(server, uuid, ".dat");
-        if (!Files.exists(dataFile, new LinkOption[0])) {
-            return;
-        }
-        try {
-            CompoundTag tag = NbtIo.readCompressed(dataFile.toFile());
-            if (tag.getFloat("Health") <= 0.0f || tag.getShort("DeathTime") > 0) {
-                EchoPlayerManager.deletePlayerDataFiles(server, uuid);
-            }
-        }
-        catch (IOException | RuntimeException exception) {
-            Constants.LOG.warn("Failed to read EchoPlayer data for {}", (Object)uuid, (Object)exception);
-            EchoPlayerManager.deletePlayerDataFiles(server, uuid);
-        }
     }
 
     private static void deletePlayerDataFiles(MinecraftServer server, UUID uuid) {
