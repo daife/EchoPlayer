@@ -690,6 +690,7 @@ public class EchoPlayerManager {
         }
         EchoPlayerManager.teleportRealPlayerToEcho(state, true);
         EchoPlayerManager.copyEchoStateToRealController(state);
+        EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
         EchoPlayerManager.syncControlledEchoToController(state);
         EchoPlayerManager.copyRealStateToEcho(state, true);
         EchoPlayerManager.hideControllerBody(realPlayer);
@@ -702,7 +703,9 @@ public class EchoPlayerManager {
             EchoPlayerManager.copyRidingTransform(realPlayer, shell);
         }
         if (echoVehicle != null) {
+            EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
             realPlayer.startRiding(echoVehicle, true);
+            EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
         }
         return null;
     }
@@ -835,7 +838,9 @@ public class EchoPlayerManager {
         }
         EchoPlayerManager.showControllerToObservers(realPlayer);
         if (realVehicle != null && !realPlayer.isDeadOrDying()) {
+            EchoPlayerManager.copyRidingTransform(state.shellPlayer, realPlayer);
             realPlayer.startRiding(realVehicle, true);
+            EchoPlayerManager.copyRidingTransform(state.shellPlayer, realPlayer);
         }
     }
 
@@ -1306,7 +1311,7 @@ public class EchoPlayerManager {
         echoPlayer.setDeltaMovement(realPlayer.getDeltaMovement());
     }
 
-    private static void copyRidingTransform(ServerPlayer source, EchoServerPlayer target) {
+    private static void copyRidingTransform(ServerPlayer source, ServerPlayer target) {
         target.moveTo(source.getX(), source.getY(), source.getZ(), source.getYRot(), source.getXRot());
         target.yHeadRot = source.yHeadRot;
         target.yBodyRot = source.yBodyRot;
@@ -1408,6 +1413,7 @@ public class EchoPlayerManager {
         realPlayer.containerMenu.broadcastChanges();
         if (teleport) {
             EchoPlayerManager.teleportRealPlayerToShell(state);
+            EchoPlayerManager.copyRidingTransform(shellPlayer, realPlayer);
         }
         if (shellPlayer.isSleeping()) {
             EchoPlayerManager.transferSleepingState(shellPlayer, realPlayer);
