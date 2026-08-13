@@ -100,6 +100,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.EntityGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelResource;
@@ -149,6 +150,19 @@ public class EchoPlayerManager {
             return authenticatedPlayer;
         }
         return state.echoPlayer;
+    }
+
+    public static ServerPlayer getIdentityAvatar(UUID authenticatedPlayerId) {
+        ControllerState state = CONTROLLERS.get(authenticatedPlayerId);
+        if (state == null || state.shellPlayer.isRemoved() || state.shellPlayer.isDeadOrDying()) {
+            return null;
+        }
+        return state.shellPlayer;
+    }
+
+    public static ServerPlayer getIdentityAvatar(EntityGetter level, UUID authenticatedPlayerId) {
+        ServerPlayer avatar = EchoPlayerManager.getIdentityAvatar(authenticatedPlayerId);
+        return avatar != null && avatar.level() == level ? avatar : null;
     }
 
     public static Entity getLogicalDamageEntity(Entity entity) {
