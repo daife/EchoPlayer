@@ -980,8 +980,9 @@ public class EchoPlayerManager {
         }
         if (state.lastSyncDimension != null) {
             boolean realMoved;
-            boolean echoMoved = echoPlayer.level().dimension() != state.lastSyncDimension || echoPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || Math.abs(Mth.wrapDegrees(echoPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(echoPlayer.getXRot() - state.lastSyncXRot)) > 0.01f;
-            boolean bl = realMoved = realPlayer.level().dimension() != state.lastSyncDimension || realPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || Math.abs(Mth.wrapDegrees(realPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(realPlayer.getXRot() - state.lastSyncXRot)) > 0.01f;
+            boolean riding = echoPlayer.isPassenger();
+            boolean echoMoved = echoPlayer.level().dimension() != state.lastSyncDimension || echoPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || !riding && (Math.abs(Mth.wrapDegrees(echoPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(echoPlayer.getXRot() - state.lastSyncXRot)) > 0.01f);
+            boolean bl = realMoved = realPlayer.level().dimension() != state.lastSyncDimension || realPlayer.position().distanceToSqr(state.lastSyncX, state.lastSyncY, state.lastSyncZ) > 1.0E-6 || !riding && (Math.abs(Mth.wrapDegrees(realPlayer.getYRot() - state.lastSyncYRot)) > 0.01f || Math.abs(Mth.wrapDegrees(realPlayer.getXRot() - state.lastSyncXRot)) > 0.01f);
             if (echoMoved && !realMoved) {
                 EchoPlayerManager.teleportRealPlayerToEcho(state, true);
             }
@@ -1291,14 +1292,8 @@ public class EchoPlayerManager {
         }
         if (echoPlayer.isPassenger()) {
             realPlayer.moveTo(echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
-            echoPlayer.setYRot(realPlayer.getYRot());
-            echoPlayer.setXRot(realPlayer.getXRot());
-            echoPlayer.yHeadRot = realPlayer.yHeadRot;
-            echoPlayer.yBodyRot = realPlayer.yBodyRot;
             echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
             EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
-            echoPlayer.setOnGround(echoPlayer.onGround());
-            echoPlayer.fallDistance = echoPlayer.fallDistance;
         } else {
             if (echoPlayer.level().dimension() != realPlayer.level().dimension()) {
                 echoPlayer.teleportTo(realPlayer.serverLevel(), realPlayer.getX(), realPlayer.getY(), realPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());

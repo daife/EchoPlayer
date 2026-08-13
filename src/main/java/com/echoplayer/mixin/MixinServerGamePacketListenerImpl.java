@@ -121,7 +121,7 @@ public abstract class MixinServerGamePacketListenerImpl {
             float yRot = packet.getYRot();
             float xRot = packet.getXRot();
             vehicle.absMoveTo(x, y, z, yRot, xRot);
-            possessed.absMoveTo(x, y, z, yRot, xRot);
+            possessed.setPos(x, y, z);
             ci.cancel();
         }
     }

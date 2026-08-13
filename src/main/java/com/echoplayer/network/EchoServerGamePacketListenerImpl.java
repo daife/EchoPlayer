@@ -25,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.entity.RelativeMovement;
 
 public class EchoServerGamePacketListenerImpl
 extends ServerGamePacketListenerImpl {
@@ -106,12 +107,21 @@ extends ServerGamePacketListenerImpl {
         }
         if (pPacket instanceof ClientboundPlayerPositionPacket positionPacket) {
             ServerLevel echoLevel = this.player.serverLevel();
+            boolean riding = this.player.isPassenger();
+            float yRot = riding ? realPlayer.getYRot() : this.player.getYRot();
+            float xRot = riding ? realPlayer.getXRot() : this.player.getXRot();
+            java.util.Set<RelativeMovement> relativeArguments = positionPacket.getRelativeArguments();
+            if (riding && (relativeArguments.contains(RelativeMovement.Y_ROT) || relativeArguments.contains(RelativeMovement.X_ROT))) {
+                relativeArguments = java.util.EnumSet.copyOf(relativeArguments);
+                relativeArguments.remove(RelativeMovement.Y_ROT);
+                relativeArguments.remove(RelativeMovement.X_ROT);
+            }
             if (realPlayer.serverLevel() != echoLevel) {
-                realPlayer.teleportTo(echoLevel, this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot());
+                realPlayer.teleportTo(echoLevel, this.player.getX(), this.player.getY(), this.player.getZ(), yRot, xRot);
             } else {
                 // Generate the position packet on the authenticated listener so that
                 // its teleport id and pending position match the client's acknowledgement.
-                realPlayer.connection.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot(), positionPacket.getRelativeArguments());
+                realPlayer.connection.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), yRot, xRot, relativeArguments);
             }
             return;
         }
