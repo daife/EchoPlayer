@@ -697,7 +697,9 @@ public class EchoPlayerManager {
         EchoPlayerManager.hideEchoFromReal(state);
         EchoPlayerManager.hideControllerFromObservers(realPlayer);
         if (realVehicle != null) {
+            EchoPlayerManager.copyRidingTransform(realPlayer, shell);
             shell.startRiding(realVehicle, true);
+            EchoPlayerManager.copyRidingTransform(realPlayer, shell);
         }
         if (echoVehicle != null) {
             realPlayer.startRiding(echoVehicle, true);
