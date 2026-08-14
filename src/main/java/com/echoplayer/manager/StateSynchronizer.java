@@ -60,6 +60,7 @@ public class StateSynchronizer {
         setGameModeIfNeeded(shellPlayer, realPlayer.gameMode.getGameModeForPlayer());
         synchronizeEffects(realPlayer, shellPlayer);
         synchronizeFireState(realPlayer, shellPlayer);
+        shellPlayer.setAirSupply(realPlayer.getAirSupply());
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
         shellPlayer.setHealth(realPlayer.getHealth());
