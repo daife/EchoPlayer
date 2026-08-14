@@ -110,20 +110,16 @@ public class EchoPlayerCommand {
         ServerPlayer sender = EchoPlayerManager.getCommandExecutor(source);
         String name = StringArgumentType.getString(context, "name");
         MinecraftServer server = sender.getServer();
-        List<EchoServerPlayer> targets = EchoPlayerManager.getEchoPlayersByName(server, name);
-        if (targets.size() == 1) {
-            EchoServerPlayer echoPlayer = targets.get(0);
-            String failure = EchoPlayerManager.possess(sender, echoPlayer);
-            if (failure != null) {
-                source.sendFailure(Component.literal(failure));
-                return 0;
-            }
-            source.sendSuccess(() -> Component.literal("You are now controlling " + name), false);
-        } else if (targets.size() > 1) {
-            source.sendFailure(Component.literal("Multiple EchoPlayers named " + name + " exist. Remove them first."));
-        } else {
-            source.sendFailure(Component.literal("Player not found or is not an EchoPlayer."));
+        EchoServerPlayer echoPlayer = resolveSingleEchoPlayer(server, name, source);
+        if (echoPlayer == null) {
+            return 1;
         }
+        String failure = EchoPlayerManager.possess(sender, echoPlayer);
+        if (failure != null) {
+            source.sendFailure(Component.literal(failure));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("You are now controlling " + name), false);
         return 1;
     }
 
@@ -173,15 +169,11 @@ public class EchoPlayerCommand {
         String name = StringArgumentType.getString(context, "name");
         String skinName = StringArgumentType.getString(context, "skin_name");
         MinecraftServer server = source.getServer();
-        List<EchoServerPlayer> targets = EchoPlayerManager.getEchoPlayersByName(server, name);
-        if (targets.size() == 1) {
-            EchoServerPlayer echoPlayer = targets.get(0);
-            SkinManager.updateSkinAsync(server, echoPlayer, skinName, source);
-        } else if (targets.size() > 1) {
-            source.sendFailure(Component.literal("Multiple EchoPlayers named " + name + " exist. Remove them first."));
-        } else {
-            source.sendFailure(Component.literal("Player not found or is not an EchoPlayer."));
+        EchoServerPlayer echoPlayer = resolveSingleEchoPlayer(server, name, source);
+        if (echoPlayer == null) {
+            return 1;
         }
+        SkinManager.updateSkinAsync(server, echoPlayer, skinName, source);
         return 1;
     }
 
@@ -190,15 +182,11 @@ public class EchoPlayerCommand {
         String name = StringArgumentType.getString(context, "name");
         String url = StringArgumentType.getString(context, "url");
         MinecraftServer server = source.getServer();
-        List<EchoServerPlayer> targets = EchoPlayerManager.getEchoPlayersByName(server, name);
-        if (targets.size() == 1) {
-            EchoServerPlayer echoPlayer = targets.get(0);
-            SkinManager.updateSkinFromUrlAsync(server, echoPlayer, url, source);
-        } else if (targets.size() > 1) {
-            source.sendFailure(Component.literal("Multiple EchoPlayers named " + name + " exist. Remove them first."));
-        } else {
-            source.sendFailure(Component.literal("Player not found or is not an EchoPlayer."));
+        EchoServerPlayer echoPlayer = resolveSingleEchoPlayer(server, name, source);
+        if (echoPlayer == null) {
+            return 1;
         }
+        SkinManager.updateSkinFromUrlAsync(server, echoPlayer, url, source);
         return 1;
     }
 
@@ -206,15 +194,24 @@ public class EchoPlayerCommand {
         CommandSourceStack source = context.getSource();
         String name = StringArgumentType.getString(context, "name");
         MinecraftServer server = source.getServer();
+        EchoServerPlayer echoPlayer = resolveSingleEchoPlayer(server, name, source);
+        if (echoPlayer == null) {
+            return 1;
+        }
+        SkinManager.clearSkin(server, echoPlayer, source);
+        return 1;
+    }
+
+    private static EchoServerPlayer resolveSingleEchoPlayer(MinecraftServer server, String name, CommandSourceStack source) {
         List<EchoServerPlayer> targets = EchoPlayerManager.getEchoPlayersByName(server, name);
         if (targets.size() == 1) {
-            EchoServerPlayer echoPlayer = targets.get(0);
-            SkinManager.clearSkin(server, echoPlayer, source);
-        } else if (targets.size() > 1) {
+            return targets.get(0);
+        }
+        if (targets.size() > 1) {
             source.sendFailure(Component.literal("Multiple EchoPlayers named " + name + " exist. Remove them first."));
         } else {
             source.sendFailure(Component.literal("Player not found or is not an EchoPlayer."));
         }
-        return 1;
+        return null;
     }
 }

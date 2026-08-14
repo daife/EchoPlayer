@@ -35,57 +35,13 @@ extends Connection {
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext pContext) throws Exception {
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext pContext) {
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext pContext, Throwable pException) {
-    }
-
-    @Override
-    protected void channelRead0(ChannelHandlerContext pContext, Packet<?> pPacket) {
-    }
-
-    @Override
     public void setListener(PacketListener pHandler) {
         super.setListener(pHandler);
     }
 
     @Override
-    public void send(Packet<?> pPacket) {
-    }
-
-    @Override
-    public void send(Packet<?> pPacket, PacketSendListener pListener) {
-    }
-
-    @Override
-    public void tick() {
-    }
-
-    @Override
-    protected void tickSecond() {
-    }
-
-    @Override
-    public void disconnect(Component pMessage) {
-    }
-
-    @Override
     public boolean isMemoryConnection() {
         return true;
-    }
-
-    @Override
-    public void setReadOnly() {
-    }
-
-    @Override
-    public void handleDisconnection() {
     }
 }
 

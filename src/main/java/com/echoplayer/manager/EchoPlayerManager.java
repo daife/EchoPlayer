@@ -69,9 +69,13 @@ import net.minecraft.world.level.EntityGetter;
 import net.minecraft.world.level.storage.LevelResource;
 
 public class EchoPlayerManager {
-    private static final Map<UUID, ControllerState> CONTROLLERS = new java.util.concurrent.ConcurrentHashMap<UUID, ControllerState>();
-    private static final Map<UUID, PossessionSession> SESSIONS = new java.util.concurrent.ConcurrentHashMap<UUID, PossessionSession>();
+    static final Map<UUID, ControllerState> CONTROLLERS = new java.util.concurrent.ConcurrentHashMap<UUID, ControllerState>();
+    static final Map<UUID, PossessionSession> SESSIONS = new java.util.concurrent.ConcurrentHashMap<UUID, PossessionSession>();
     private static final Map<UUID, PendingEchoReshow> PENDING_ECHO_RESHOWS = new java.util.concurrent.ConcurrentHashMap<UUID, PendingEchoReshow>();
+
+    static Map<UUID, ControllerState> getControllers() { return CONTROLLERS; }
+    static Map<UUID, PossessionSession> getSessions() { return SESSIONS; }
+    static Map<UUID, PendingEchoReshow> getPendingReshows() { return PENDING_ECHO_RESHOWS; }
 
     public static GameProfile createStableProfile(String name) {
         return new GameProfile(UUIDUtil.createOfflinePlayerUUID(name), name);
@@ -1002,57 +1006,32 @@ public class EchoPlayerManager {
     }
 
     private static void syncFoodState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
-        boolean realFoodChanged = realPlayer.getFoodData().getFoodLevel() != state.lastFoodLevel;
-        boolean echoFoodChanged = echoPlayer.getFoodData().getFoodLevel() != state.lastFoodLevel;
-        if (realFoodChanged) {
-            echoPlayer.getFoodData().setFoodLevel(realPlayer.getFoodData().getFoodLevel());
-            state.lastFoodLevel = realPlayer.getFoodData().getFoodLevel();
-        } else if (echoFoodChanged) {
-            realPlayer.getFoodData().setFoodLevel(echoPlayer.getFoodData().getFoodLevel());
-            state.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
-        }
-        boolean realSatChanged = Float.compare(realPlayer.getFoodData().getSaturationLevel(), state.lastSaturation) != 0;
-        boolean echoSatChanged = Float.compare(echoPlayer.getFoodData().getSaturationLevel(), state.lastSaturation) != 0;
-        if (realSatChanged) {
-            echoPlayer.getFoodData().setSaturation(realPlayer.getFoodData().getSaturationLevel());
-            state.lastSaturation = realPlayer.getFoodData().getSaturationLevel();
-        } else if (echoSatChanged) {
-            realPlayer.getFoodData().setSaturation(echoPlayer.getFoodData().getSaturationLevel());
-            state.lastSaturation = echoPlayer.getFoodData().getSaturationLevel();
-        }
-        boolean realExhChanged = Float.compare(realPlayer.getFoodData().getExhaustionLevel(), state.lastExhaustion) != 0;
-        boolean echoExhChanged = Float.compare(echoPlayer.getFoodData().getExhaustionLevel(), state.lastExhaustion) != 0;
-        if (realExhChanged) {
-            echoPlayer.getFoodData().setExhaustion(realPlayer.getFoodData().getExhaustionLevel());
-            state.lastExhaustion = realPlayer.getFoodData().getExhaustionLevel();
-        } else if (echoExhChanged) {
-            realPlayer.getFoodData().setExhaustion(echoPlayer.getFoodData().getExhaustionLevel());
-            state.lastExhaustion = echoPlayer.getFoodData().getExhaustionLevel();
-        }
+        StateSyncHelper.syncIntField(realPlayer, echoPlayer,
+            p -> p.getFoodData().getFoodLevel(), e -> e.getFoodData().getFoodLevel(),
+            (p, v) -> p.getFoodData().setFoodLevel(v), (e, v) -> e.getFoodData().setFoodLevel(v),
+            () -> state.lastFoodLevel, v -> state.lastFoodLevel = v);
+        StateSyncHelper.syncFloatField(realPlayer, echoPlayer,
+            p -> p.getFoodData().getSaturationLevel(), e -> e.getFoodData().getSaturationLevel(),
+            (p, v) -> p.getFoodData().setSaturation((float)(double)v), (e, v) -> e.getFoodData().setSaturation((float)(double)v),
+            () -> state.lastSaturation, v -> state.lastSaturation = (float)v);
+        StateSyncHelper.syncFloatField(realPlayer, echoPlayer,
+            p -> p.getFoodData().getExhaustionLevel(), e -> e.getFoodData().getExhaustionLevel(),
+            (p, v) -> p.getFoodData().setExhaustion((float)(double)v), (e, v) -> e.getFoodData().setExhaustion((float)(double)v),
+            () -> state.lastExhaustion, v -> state.lastExhaustion = (float)v);
     }
 
     private static void syncHealthState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
-        boolean realHealthChanged = Float.compare(realPlayer.getHealth(), state.lastHealth) != 0;
-        boolean echoHealthChanged = Float.compare(echoPlayer.getHealth(), state.lastHealth) != 0;
-        if (echoHealthChanged) {
-            realPlayer.setHealth(echoPlayer.getHealth());
-            state.lastHealth = echoPlayer.getHealth();
-        } else if (realHealthChanged) {
-            echoPlayer.setHealth(realPlayer.getHealth());
-            state.lastHealth = realPlayer.getHealth();
-        }
+        StateSyncHelper.syncFloatField(realPlayer, echoPlayer,
+            p -> p.getHealth(), e -> e.getHealth(),
+            (p, v) -> p.setHealth((float)(double)v), (e, v) -> e.setHealth((float)(double)v),
+            () -> state.lastHealth, v -> state.lastHealth = (float)v);
     }
 
     private static void syncAbsorptionState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
-        boolean realAbsChanged = Float.compare(realPlayer.getAbsorptionAmount(), state.lastAbsorption) != 0;
-        boolean echoAbsChanged = Float.compare(echoPlayer.getAbsorptionAmount(), state.lastAbsorption) != 0;
-        if (echoAbsChanged) {
-            realPlayer.setAbsorptionAmount(echoPlayer.getAbsorptionAmount());
-            state.lastAbsorption = echoPlayer.getAbsorptionAmount();
-        } else if (realAbsChanged) {
-            echoPlayer.setAbsorptionAmount(realPlayer.getAbsorptionAmount());
-            state.lastAbsorption = realPlayer.getAbsorptionAmount();
-        }
+        StateSyncHelper.syncFloatField(realPlayer, echoPlayer,
+            p -> p.getAbsorptionAmount(), e -> e.getAbsorptionAmount(),
+            (p, v) -> p.setAbsorptionAmount((float)(double)v), (e, v) -> e.setAbsorptionAmount((float)(double)v),
+            () -> state.lastAbsorption, v -> state.lastAbsorption = (float)v);
     }
 
     private static void copyEchoStateToRealController(ControllerState state) {
@@ -1330,82 +1309,35 @@ public class EchoPlayerManager {
     }
 
     private static void hideEchoFromReal(ControllerState state) {
-        state.realPlayer.connection.send(new ClientboundRemoveEntitiesPacket(state.echoPlayer.getId()));
+        ControllerVisibility.hideEchoFromReal(state);
     }
 
     public static void hideControllerFromViewer(ServerPlayer controller, ServerPlayer viewer) {
-        if (controller == viewer || viewer instanceof EchoServerPlayer || !isPossessing(controller)) {
-            return;
-        }
-        viewer.connection.send(new ClientboundRemoveEntitiesPacket(controller.getId()));
+        ControllerVisibility.hideControllerFromViewer(controller, viewer);
     }
 
     public static void hidePossessingControllersFromViewer(ServerPlayer viewer) {
-        if (viewer instanceof EchoServerPlayer) {
-            return;
-        }
-        for (ControllerState state : CONTROLLERS.values()) {
-            hideControllerFromViewer(state.realPlayer, viewer);
-        }
+        ControllerVisibility.hidePossessingControllersFromViewer(viewer);
     }
 
     public static void hideControllerFromObservers(ServerPlayer controller) {
-        ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(controller.getId());
-        for (ServerPlayer viewer : controller.server.getPlayerList().getPlayers()) {
-            if (viewer == controller) {
-                continue;
-            }
-            viewer.connection.send(destroyPacket);
-        }
+        ControllerVisibility.hideControllerFromObservers(controller);
     }
 
     public static void showControllerToObservers(ServerPlayer controller) {
-        ServerLevel level = controller.serverLevel();
-        level.getChunkSource().removeEntity(controller);
-        level.getChunkSource().addEntity(controller);
+        ControllerVisibility.showControllerToObservers(controller);
     }
 
     public static void sendPlayerEntityToViewer(ServerPlayer controller, ServerPlayer viewer) {
-        viewer.connection.send(new ClientboundAddPlayerPacket(controller));
-        List<SynchedEntityData.DataValue<?>> entityData = controller.getEntityData().getNonDefaultValues();
-        if (entityData != null) {
-            viewer.connection.send(new ClientboundSetEntityDataPacket(controller.getId(), entityData));
-        }
-        viewer.connection.send(new ClientboundRotateHeadPacket(controller, (byte)Mth.floor(controller.getYHeadRot() * 256.0f / 360.0f)));
-        viewer.connection.send(new ClientboundSetEntityMotionPacket(controller));
-        ArrayList<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<Pair<EquipmentSlot, ItemStack>>();
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            ItemStack item = controller.getItemBySlot(slot);
-            if (item.isEmpty()) {
-                continue;
-            }
-            equipment.add(Pair.of(slot, item.copy()));
-        }
-        if (!equipment.isEmpty()) {
-            viewer.connection.send(new ClientboundSetEquipmentPacket(controller.getId(), equipment));
-        }
+        ControllerVisibility.sendPlayerEntityToViewer(controller, viewer);
     }
 
     private static void reshowEchoToReal(ControllerState state) {
-        ServerPlayer realPlayer = state.realPlayer;
-        EchoServerPlayer echoPlayer = state.echoPlayer;
-        if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
-            return;
-        }
-        sendEchoEntityToViewer(echoPlayer, realPlayer);
+        ControllerVisibility.reshowEchoToReal(state);
     }
 
     private static void sendEchoEntityToViewer(EchoServerPlayer echoPlayer, ServerPlayer viewer) {
-        if (echoPlayer.level().dimension() != viewer.level().dimension()) {
-            return;
-        }
-        EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
-        viewer.connection.send(new ClientboundPlayerInfoUpdatePacket(actions, List.of(echoPlayer)));
-        sendPlayerEntityToViewer(echoPlayer, viewer);
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            ItemStack item = echoPlayer.getItemBySlot(slot);
-            viewer.connection.send(new ClientboundSetEquipmentPacket(echoPlayer.getId(), List.of(Pair.of(slot, item))));
-        }
+        ControllerVisibility.sendEchoEntityToViewer(echoPlayer, viewer);
     }
 
     private static void removeEchoPlayerEntityAndData(EchoServerPlayer echoPlayer) {
@@ -1481,38 +1413,38 @@ public class EchoPlayerManager {
         }
     }
 
-    private static final class PossessionSession {
-        private final EchoServerPlayer echoPlayer;
-        private ControllerState controller;
-        private long lastDamageGameTime = Long.MIN_VALUE;
-        private String lastDamageType = "";
-        private int lastDamageDirectEntityId = Integer.MIN_VALUE;
-        private int lastDamageCausingEntityId = Integer.MIN_VALUE;
-        private float lastDamageAmount;
-        private long lastEffectTickGameTime = Long.MIN_VALUE;
-        private boolean tickingCanonicalEffects;
+    static final class PossessionSession {
+        final EchoServerPlayer echoPlayer;
+        ControllerState controller;
+        long lastDamageGameTime = Long.MIN_VALUE;
+        String lastDamageType = "";
+        int lastDamageDirectEntityId = Integer.MIN_VALUE;
+        int lastDamageCausingEntityId = Integer.MIN_VALUE;
+        float lastDamageAmount;
+        long lastEffectTickGameTime = Long.MIN_VALUE;
+        boolean tickingCanonicalEffects;
 
-        private PossessionSession(EchoServerPlayer echoPlayer) {
+        PossessionSession(EchoServerPlayer echoPlayer) {
             this.echoPlayer = echoPlayer;
         }
     }
 
-    private static final class ControllerState {
-        private final ServerPlayer realPlayer;
-        private final EchoServerPlayer echoPlayer;
-        private final EchoServerPlayer shellPlayer;
-        private final PossessionSession session;
-        private final ListTag originalInventory;
-        private final GameType originalGameMode;
+    static final class ControllerState {
+        final ServerPlayer realPlayer;
+        final EchoServerPlayer echoPlayer;
+        final EchoServerPlayer shellPlayer;
+        final PossessionSession session;
+        final ListTag originalInventory;
+        final GameType originalGameMode;
         public ItemStack[] lastInventoryState;
         public float lastHealth;
         public int lastFoodLevel;
         public float lastSaturation;
         public float lastExhaustion;
         public float lastAbsorption;
-        private GameType lastSyncGameMode;
+        GameType lastSyncGameMode;
 
-        private ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
+        ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
             this.realPlayer = realPlayer;
             this.echoPlayer = echoPlayer;
             this.shellPlayer = shellPlayer;
@@ -1540,12 +1472,12 @@ public class EchoPlayerManager {
         }
     }
 
-    private static final class PendingEchoReshow {
-        private final UUID echoPlayerId;
-        private final float health;
-        private final GameType gameMode;
+    static final class PendingEchoReshow {
+        final UUID echoPlayerId;
+        final float health;
+        final GameType gameMode;
 
-        private PendingEchoReshow(EchoServerPlayer echoPlayer) {
+        PendingEchoReshow(EchoServerPlayer echoPlayer) {
             this.echoPlayerId = echoPlayer.getUUID();
             this.health = echoPlayer.getHealth();
             this.gameMode = echoPlayer.gameMode.getGameModeForPlayer();

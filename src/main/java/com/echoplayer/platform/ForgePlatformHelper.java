@@ -89,7 +89,7 @@ implements IPlatformHelper {
             }
         }
         catch (Exception exception) {
-            // empty catch block
+            Constants.LOG.error("Falha ao sincronizar inventario Curios entre {} e {}", new Object[]{source.getGameProfile().getName(), target.getGameProfile().getName(), exception});
         }
     }
 }

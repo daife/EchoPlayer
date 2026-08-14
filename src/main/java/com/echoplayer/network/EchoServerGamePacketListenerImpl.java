@@ -2,6 +2,7 @@ package com.echoplayer.network;
 
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.manager.EchoPlayerManager;
+import java.util.Set;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -40,57 +41,31 @@ extends ServerGamePacketListenerImpl {
     public void disconnect(Component pTextComponent) {
     }
 
+    private static final Set<Class<? extends Packet<?>>> PROXIED_PACKET_TYPES = Set.of(
+        ClientboundContainerSetSlotPacket.class,
+        ClientboundContainerSetContentPacket.class,
+        ClientboundContainerSetDataPacket.class,
+        ClientboundSetCarriedItemPacket.class,
+        ClientboundSetHealthPacket.class,
+        ClientboundSetExperiencePacket.class,
+        ClientboundPlayerAbilitiesPacket.class,
+        ClientboundOpenScreenPacket.class,
+        ClientboundContainerClosePacket.class,
+        ClientboundRespawnPacket.class,
+        ClientboundSetEntityDataPacket.class,
+        ClientboundRemoveMobEffectPacket.class,
+        ClientboundUpdateMobEffectPacket.class,
+        ClientboundCooldownPacket.class
+    );
+
     private boolean shouldProxy(Packet<?> packet) {
-        if (packet instanceof ClientboundContainerSetSlotPacket) {
-            return true;
+        if (!PROXIED_PACKET_TYPES.contains(packet.getClass())) {
+            return false;
         }
-        if (packet instanceof ClientboundContainerSetContentPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundContainerSetDataPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundSetCarriedItemPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundSetHealthPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundSetExperiencePacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundPlayerPositionPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundPlayerAbilitiesPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundOpenScreenPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundContainerClosePacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundRespawnPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundSetEntityDataPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundRemoveMobEffectPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundUpdateMobEffectPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundCooldownPacket) {
-            return true;
-        }
-        if (packet instanceof ClientboundEntityEventPacket) {
-            ClientboundEntityEventPacket eventPacket = (ClientboundEntityEventPacket)packet;
+        if (packet instanceof ClientboundEntityEventPacket eventPacket) {
             return eventPacket.getEntity(this.player.level()) == this.player;
         }
-        return false;
+        return true;
     }
 
     @Override
