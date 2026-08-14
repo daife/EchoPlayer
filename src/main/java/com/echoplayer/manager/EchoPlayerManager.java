@@ -4,6 +4,7 @@ import com.echoplayer.Constants;
 import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.mixin.CommandSourceStackAccessor;
+import com.echoplayer.mixin.FoodDataAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.network.EchoConnection;
 import com.echoplayer.network.EchoServerGamePacketListenerImpl;
@@ -1027,6 +1028,18 @@ public class EchoPlayerManager {
             p -> p.getFoodData().getExhaustionLevel(), e -> e.getFoodData().getExhaustionLevel(),
             (p, v) -> p.getFoodData().setExhaustion((float)(double)v), (e, v) -> e.getFoodData().setExhaustion((float)(double)v),
             () -> state.lastExhaustion, v -> state.lastExhaustion = (float)v);
+        StateSyncHelper.syncIntField(realPlayer, echoPlayer,
+            p -> ((FoodDataAccessor)((Object)p.getFoodData())).echoplayer$getTickTimer(),
+            e -> ((FoodDataAccessor)((Object)e.getFoodData())).echoplayer$getTickTimer(),
+            (p, v) -> ((FoodDataAccessor)((Object)p.getFoodData())).echoplayer$setTickTimer(v),
+            (e, v) -> ((FoodDataAccessor)((Object)e.getFoodData())).echoplayer$setTickTimer(v),
+            () -> state.lastFoodTickTimer, value -> state.lastFoodTickTimer = value);
+        StateSyncHelper.syncIntField(realPlayer, echoPlayer,
+            p -> ((FoodDataAccessor)((Object)p.getFoodData())).echoplayer$getLastFoodLevel(),
+            e -> ((FoodDataAccessor)((Object)e.getFoodData())).echoplayer$getLastFoodLevel(),
+            (p, v) -> ((FoodDataAccessor)((Object)p.getFoodData())).echoplayer$setLastFoodLevel(v),
+            (e, v) -> ((FoodDataAccessor)((Object)e.getFoodData())).echoplayer$setLastFoodLevel(v),
+            () -> state.lastFoodDataLevel, value -> state.lastFoodDataLevel = value);
     }
 
     private static void syncHealthState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
@@ -1073,6 +1086,13 @@ public class EchoPlayerManager {
         state.lastAirSupply = echoPlayer.getAirSupply();
         realPlayer.setTicksFrozen(echoPlayer.getTicksFrozen());
         state.lastTicksFrozen = echoPlayer.getTicksFrozen();
+        StateSynchronizer.copyFoodState(echoPlayer, realPlayer);
+        state.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
+        state.lastSaturation = echoPlayer.getFoodData().getSaturationLevel();
+        state.lastExhaustion = echoPlayer.getFoodData().getExhaustionLevel();
+        FoodDataAccessor echoFood = (FoodDataAccessor)((Object)echoPlayer.getFoodData());
+        state.lastFoodTickTimer = echoFood.echoplayer$getTickTimer();
+        state.lastFoodDataLevel = echoFood.echoplayer$getLastFoodLevel();
         boolean healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0
             || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0
             || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel()
@@ -1195,6 +1215,12 @@ public class EchoPlayerManager {
                     if (backup.contains("foodSaturationLevel", 99)) {
                         realPlayer.getFoodData().setSaturation(backup.getFloat("foodSaturationLevel"));
                     }
+                    if (backup.contains("foodExhaustionLevel", 99)) {
+                        realPlayer.getFoodData().setExhaustion(backup.getFloat("foodExhaustionLevel"));
+                    }
+                    if (backup.contains("foodTickTimer", 99)) {
+                        ((FoodDataAccessor)((Object)realPlayer.getFoodData())).echoplayer$setTickTimer(backup.getInt("foodTickTimer"));
+                    }
                     if (backup.contains("XpLevel", 99)) {
                         realPlayer.experienceLevel = backup.getInt("XpLevel");
                     }
@@ -1227,10 +1253,9 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeAttributes(shellPlayer, realPlayer, true);
         realPlayer.setAirSupply(shellPlayer.getAirSupply());
         realPlayer.setTicksFrozen(shellPlayer.getTicksFrozen());
+        StateSynchronizer.copyFoodState(shellPlayer, realPlayer);
         realPlayer.setHealth(Math.max(0.0f, shellPlayer.getHealth()));
         realPlayer.setAbsorptionAmount(shellPlayer.getAbsorptionAmount());
-        realPlayer.getFoodData().setFoodLevel(shellPlayer.getFoodData().getFoodLevel());
-        realPlayer.getFoodData().setSaturation(shellPlayer.getFoodData().getSaturationLevel());
         realPlayer.experienceLevel = shellPlayer.experienceLevel;
         realPlayer.experienceProgress = shellPlayer.experienceProgress;
         realPlayer.totalExperience = shellPlayer.totalExperience;
@@ -1309,6 +1334,7 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeAttributes(state.shellPlayer, realPlayer, true);
         realPlayer.setAirSupply(state.shellPlayer.getAirSupply());
         realPlayer.setTicksFrozen(state.shellPlayer.getTicksFrozen());
+        StateSynchronizer.copyFoodState(state.shellPlayer, realPlayer);
         realPlayer.setAbsorptionAmount(state.shellPlayer.getAbsorptionAmount());
         realPlayer.setInvisible(state.shellPlayer.isInvisible());
         realPlayer.setSilent(state.shellPlayer.isSilent());
@@ -1484,6 +1510,8 @@ public class EchoPlayerManager {
         public int lastFoodLevel;
         public float lastSaturation;
         public float lastExhaustion;
+        int lastFoodTickTimer;
+        int lastFoodDataLevel;
         public float lastAbsorption;
         int lastFireTicks;
         int lastAirSupply;
@@ -1509,6 +1537,9 @@ public class EchoPlayerManager {
             this.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
             this.lastSaturation = shellPlayer.getFoodData().getSaturationLevel();
             this.lastExhaustion = shellPlayer.getFoodData().getExhaustionLevel();
+            FoodDataAccessor echoFood = (FoodDataAccessor)((Object)echoPlayer.getFoodData());
+            this.lastFoodTickTimer = echoFood.echoplayer$getTickTimer();
+            this.lastFoodDataLevel = echoFood.echoplayer$getLastFoodLevel();
             this.lastAbsorption = shellPlayer.getAbsorptionAmount();
             this.lastFireTicks = echoPlayer.getRemainingFireTicks();
             this.lastAirSupply = echoPlayer.getAirSupply();

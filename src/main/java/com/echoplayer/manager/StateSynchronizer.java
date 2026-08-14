@@ -4,6 +4,7 @@ import com.echoplayer.Constants;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.mixin.AttributeInstanceAccessor;
 import com.echoplayer.mixin.AttributeMapAccessor;
+import com.echoplayer.mixin.FoodDataAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.mixin.MobEffectInstanceAccessor;
 import com.echoplayer.mixin.PlayerAccessor;
@@ -62,6 +63,7 @@ public class StateSynchronizer {
         synchronizeFireState(realPlayer, shellPlayer);
         shellPlayer.setAirSupply(realPlayer.getAirSupply());
         shellPlayer.setTicksFrozen(realPlayer.getTicksFrozen());
+        copyFoodState(realPlayer, shellPlayer);
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
         shellPlayer.setHealth(realPlayer.getHealth());
@@ -99,6 +101,16 @@ public class StateSynchronizer {
 
     static void copyInventoryContents(ServerPlayer source, ServerPlayer target) {
         synchronizeInventoryContents(source, target);
+    }
+
+    static void copyFoodState(ServerPlayer source, ServerPlayer target) {
+        target.getFoodData().setFoodLevel(source.getFoodData().getFoodLevel());
+        target.getFoodData().setSaturation(source.getFoodData().getSaturationLevel());
+        target.getFoodData().setExhaustion(source.getFoodData().getExhaustionLevel());
+        FoodDataAccessor sourceFood = (FoodDataAccessor)((Object)source.getFoodData());
+        FoodDataAccessor targetFood = (FoodDataAccessor)((Object)target.getFoodData());
+        targetFood.echoplayer$setTickTimer(sourceFood.echoplayer$getTickTimer());
+        targetFood.echoplayer$setLastFoodLevel(sourceFood.echoplayer$getLastFoodLevel());
     }
 
     static void synchronizeFireState(ServerPlayer source, ServerPlayer target) {
