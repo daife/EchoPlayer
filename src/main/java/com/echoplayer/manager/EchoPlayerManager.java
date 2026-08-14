@@ -295,6 +295,14 @@ public class EchoPlayerManager {
             ServerPlayer::getTicksFrozen, EchoServerPlayer::getTicksFrozen,
             ServerPlayer::setTicksFrozen, EchoServerPlayer::setTicksFrozen,
             () -> state.lastTicksFrozen, value -> state.lastTicksFrozen = value);
+        StateSyncHelper.syncBooleanField(realPlayer, state.echoPlayer,
+            realPlayer::isInvisible, state.echoPlayer::isInvisible,
+            ServerPlayer::setInvisible, EchoServerPlayer::setInvisible,
+            () -> state.lastInvisible, value -> state.lastInvisible = value);
+        StateSyncHelper.syncBooleanField(realPlayer, state.echoPlayer,
+            realPlayer::hasGlowingTag, state.echoPlayer::hasGlowingTag,
+            ServerPlayer::setGlowingTag, EchoServerPlayer::setGlowingTag,
+            () -> state.lastGlowing, value -> state.lastGlowing = value);
         StateSynchronizer.synchronizeAttributes(state.echoPlayer, realPlayer, false);
         realPlayer.setAbsorptionAmount(state.echoPlayer.getAbsorptionAmount());
         StateSynchronizer.hideControllerBody(realPlayer);
@@ -1086,6 +1094,10 @@ public class EchoPlayerManager {
         state.lastAirSupply = echoPlayer.getAirSupply();
         realPlayer.setTicksFrozen(echoPlayer.getTicksFrozen());
         state.lastTicksFrozen = echoPlayer.getTicksFrozen();
+        realPlayer.setInvisible(echoPlayer.isInvisible());
+        state.lastInvisible = echoPlayer.isInvisible();
+        realPlayer.setGlowingTag(echoPlayer.hasGlowingTag());
+        state.lastGlowing = echoPlayer.hasGlowingTag();
         StateSynchronizer.copyFoodState(echoPlayer, realPlayer);
         state.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
         state.lastSaturation = echoPlayer.getFoodData().getSaturationLevel();
@@ -1262,6 +1274,7 @@ public class EchoPlayerManager {
         StateSynchronizer.copyAbilities(shellPlayer, realPlayer);
         realPlayer.setInvisible(shellPlayer.isInvisible());
         realPlayer.setSilent(shellPlayer.isSilent());
+        realPlayer.setGlowingTag(shellPlayer.hasGlowingTag());
         StateSynchronizer.syncRealPlayerPackets(realPlayer);
         realPlayer.containerMenu.broadcastChanges();
         if (teleport) {
@@ -1338,6 +1351,7 @@ public class EchoPlayerManager {
         realPlayer.setAbsorptionAmount(state.shellPlayer.getAbsorptionAmount());
         realPlayer.setInvisible(state.shellPlayer.isInvisible());
         realPlayer.setSilent(state.shellPlayer.isSilent());
+        realPlayer.setGlowingTag(state.shellPlayer.hasGlowingTag());
         realPlayer.containerMenu.broadcastChanges();
     }
 
@@ -1516,6 +1530,8 @@ public class EchoPlayerManager {
         int lastFireTicks;
         int lastAirSupply;
         int lastTicksFrozen;
+        boolean lastInvisible;
+        boolean lastGlowing;
         GameType lastSyncGameMode;
 
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
@@ -1544,6 +1560,8 @@ public class EchoPlayerManager {
             this.lastFireTicks = echoPlayer.getRemainingFireTicks();
             this.lastAirSupply = echoPlayer.getAirSupply();
             this.lastTicksFrozen = echoPlayer.getTicksFrozen();
+            this.lastInvisible = echoPlayer.isInvisible();
+            this.lastGlowing = echoPlayer.hasGlowingTag();
             realPlayer.setHealth(this.lastHealth);
             realPlayer.getFoodData().setFoodLevel(this.lastFoodLevel);
             realPlayer.getFoodData().setSaturation(this.lastSaturation);

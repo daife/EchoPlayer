@@ -66,6 +66,9 @@ public class StateSynchronizer {
         copyFoodState(realPlayer, shellPlayer);
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
+        shellPlayer.setInvisible(realPlayer.isInvisible());
+        shellPlayer.setSilent(realPlayer.isSilent());
+        shellPlayer.setGlowingTag(realPlayer.hasGlowingTag());
         shellPlayer.setHealth(realPlayer.getHealth());
         shellPlayer.setAbsorptionAmount(realPlayer.getAbsorptionAmount());
         shellPlayer.getFoodData().setFoodLevel(realPlayer.getFoodData().getFoodLevel());

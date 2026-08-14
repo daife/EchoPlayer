@@ -2,6 +2,8 @@ package com.echoplayer.manager;
 
 import com.echoplayer.entity.EchoServerPlayer;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.ToDoubleFunction;
@@ -53,6 +55,25 @@ class StateSyncHelper {
                 echoSetter.accept(echoPlayer, realValue);
                 lastUpdater.accept(realValue);
             }
+        }
+    }
+
+    static void syncBooleanField(ServerPlayer realPlayer, EchoServerPlayer echoPlayer,
+                                 BooleanSupplier realGetter,
+                                 BooleanSupplier echoGetter,
+                                 BiConsumer<ServerPlayer, Boolean> realSetter,
+                                 BiConsumer<EchoServerPlayer, Boolean> echoSetter,
+                                 BooleanSupplier lastSupplier,
+                                 Consumer<Boolean> lastUpdater) {
+        boolean realValue = realGetter.getAsBoolean();
+        boolean echoValue = echoGetter.getAsBoolean();
+        boolean lastValue = lastSupplier.getAsBoolean();
+        if (echoValue != lastValue) {
+            realSetter.accept(realPlayer, echoValue);
+            lastUpdater.accept(echoValue);
+        } else if (realValue != lastValue) {
+            echoSetter.accept(echoPlayer, realValue);
+            lastUpdater.accept(realValue);
         }
     }
 
