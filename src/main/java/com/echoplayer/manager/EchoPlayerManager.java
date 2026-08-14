@@ -1543,12 +1543,21 @@ public class EchoPlayerManager {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
+        writeViewRotation(buf, captureViewRotation(state.realPlayer));
         Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
     }
 
     private static void sendUnpossessPacket(ServerPlayer realPlayer) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        writeViewRotation(buf, captureViewRotation(realPlayer));
         Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
+    }
+
+    private static void writeViewRotation(FriendlyByteBuf buf, ViewRotation view) {
+        buf.writeFloat(view.yRot);
+        buf.writeFloat(view.xRot);
+        buf.writeFloat(view.yHeadRot);
+        buf.writeFloat(view.yBodyRot);
     }
 
     private static void removeShell(ControllerState state) {
