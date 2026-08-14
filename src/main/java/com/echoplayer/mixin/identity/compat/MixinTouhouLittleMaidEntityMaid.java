@@ -1,4 +1,4 @@
-package com.echoplayer.mixin.compat;
+package com.echoplayer.mixin.identity.compat;
 
 import com.echoplayer.manager.EchoPlayerManager;
 import java.util.UUID;
@@ -11,6 +11,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Projects the logical owner to Touhou Little Maid's owner accessor.  The mod's
+ * owner-dependent behaviour reads this method directly, outside Forge's common
+ * tame-animal hooks.
+ */
 @Pseudo
 @Mixin(targets={"com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid"}, remap=false)
 public abstract class MixinTouhouLittleMaidEntityMaid extends TamableAnimal {

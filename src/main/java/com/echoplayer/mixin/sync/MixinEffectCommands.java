@@ -1,4 +1,4 @@
-package com.echoplayer.mixin;
+package com.echoplayer.mixin.sync;
 
 import com.echoplayer.manager.EchoPlayerManager;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -13,6 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Bridges vanilla effect commands to possession synchronization.  These command
+ * internals do not expose a Forge post-mutation event with their target list.
+ */
 @Mixin(value={EffectCommands.class})
 public class MixinEffectCommands {
     @Inject(method={"giveEffect"}, at={@At(value="RETURN")})
@@ -30,4 +34,3 @@ public class MixinEffectCommands {
         EchoPlayerManager.syncLogicalStateAfterExternalMutation(targets);
     }
 }
-

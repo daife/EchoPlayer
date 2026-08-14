@@ -1,4 +1,4 @@
-package com.echoplayer.mixin;
+package com.echoplayer.mixin.sync;
 
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.manager.EchoPlayerManager;
@@ -13,6 +13,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Redirects vanilla XP application to the possessed Echo.  The repair and XP
+ * writes are private ExperienceOrb internals, with no Forge interception point.
+ */
 @Mixin(value={ExperienceOrb.class})
 public class MixinExperienceOrb {
     @Unique
@@ -57,4 +61,3 @@ public class MixinExperienceOrb {
         }
     }
 }
-

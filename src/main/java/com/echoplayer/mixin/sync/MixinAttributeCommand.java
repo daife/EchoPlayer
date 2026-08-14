@@ -1,4 +1,4 @@
-package com.echoplayer.mixin;
+package com.echoplayer.mixin.sync;
 
 import com.echoplayer.manager.EchoPlayerManager;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -14,6 +14,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Bridges vanilla attribute commands to possession synchronization.  Forge has
+ * no equivalent post-mutation event for these individual command operations.
+ */
 @Mixin(value={AttributeCommand.class})
 public class MixinAttributeCommand {
     @Inject(method={"setAttributeBase"}, at={@At(value="RETURN")})
@@ -31,4 +35,3 @@ public class MixinAttributeCommand {
         EchoPlayerManager.syncLogicalStateAfterExternalMutation(entity);
     }
 }
-

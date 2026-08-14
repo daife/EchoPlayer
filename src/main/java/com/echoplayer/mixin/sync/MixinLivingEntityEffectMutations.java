@@ -1,4 +1,4 @@
-package com.echoplayer.mixin;
+package com.echoplayer.mixin.sync;
 
 import com.echoplayer.manager.EchoPlayerManager;
 import javax.annotation.Nullable;
@@ -11,6 +11,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Observes direct effect mutations, including calls from gameplay and other
+ * mods; Forge does not provide one post-mutation hook covering all three APIs.
+ */
 @Mixin(LivingEntity.class)
 public class MixinLivingEntityEffectMutations {
     @Inject(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z", at = @At("TAIL"))

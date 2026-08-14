@@ -1,4 +1,4 @@
-package com.echoplayer.mixin;
+package com.echoplayer.mixin.identity;
 
 import com.echoplayer.manager.EchoPlayerManager;
 import java.util.UUID;
@@ -13,6 +13,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Projects possession identity into vanilla tame ownership.  Follow-owner AI
+ * and interaction checks consume these methods directly, with no unified Forge
+ * event that can substitute the logical owner.
+ */
 @Mixin(TamableAnimal.class)
 public abstract class MixinTamableAnimal {
     @Shadow
