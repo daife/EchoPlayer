@@ -4,18 +4,39 @@ import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.entity.LivingEntity;
 
 public class ClientPacketHandler {
     public static void handlePossessPacket(FriendlyByteBuf buf) {
         UUID echoUUID = buf.readUUID();
         int shellId = buf.readInt();
         applyLocalPlayerRotation(buf);
-        ClientPossessionData.beginPossession(echoUUID, shellId);
+        float shellYRot = buf.readFloat();
+        float shellXRot = buf.readFloat();
+        float shellYHeadRot = buf.readFloat();
+        float shellYBodyRot = buf.readFloat();
+        ClientPossessionData.beginPossession(echoUUID, shellId, shellYRot, shellXRot, shellYHeadRot, shellYBodyRot);
     }
 
     public static void handleUnpossessPacket(FriendlyByteBuf buf) {
         applyLocalPlayerRotation(buf);
+        boolean hasEchoRotation = buf.readBoolean();
+        int echoEntityId = -1;
+        float echoYRot = 0.0f;
+        float echoXRot = 0.0f;
+        float echoYHeadRot = 0.0f;
+        float echoYBodyRot = 0.0f;
+        if (hasEchoRotation) {
+            echoEntityId = buf.readInt();
+            echoYRot = buf.readFloat();
+            echoXRot = buf.readFloat();
+            echoYHeadRot = buf.readFloat();
+            echoYBodyRot = buf.readFloat();
+        }
         ClientPossessionData.reset();
+        if (hasEchoRotation) {
+            ClientPossessionData.queueEntityRotation(echoEntityId, echoYRot, echoXRot, echoYHeadRot, echoYBodyRot);
+        }
     }
 
     /**
@@ -32,16 +53,20 @@ public class ClientPacketHandler {
         if (player == null) {
             return;
         }
-        player.setYRot(yRot);
-        player.setXRot(xRot);
-        player.setYHeadRot(yHeadRot);
-        player.yBodyRot = yBodyRot;
+        applyEntityRotation(player, yRot, xRot, yHeadRot, yBodyRot);
+    }
+
+    static void applyEntityRotation(LivingEntity entity, float yRot, float xRot, float yHeadRot, float yBodyRot) {
+        entity.setYRot(yRot);
+        entity.setXRot(xRot);
+        entity.setYHeadRot(yHeadRot);
+        entity.yBodyRot = yBodyRot;
         // Reset render interpolation too, otherwise a stale client-side pose is
         // blended into the first frames after switching bodies.
-        player.yRotO = yRot;
-        player.xRotO = xRot;
-        player.yHeadRotO = yHeadRot;
-        player.yBodyRotO = yBodyRot;
+        entity.yRotO = yRot;
+        entity.xRotO = xRot;
+        entity.yHeadRotO = yHeadRot;
+        entity.yBodyRotO = yBodyRot;
     }
 
 }

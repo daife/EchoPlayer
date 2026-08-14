@@ -752,7 +752,7 @@ public class EchoPlayerManager {
         }
         // Capture the controlled view before changing either mount relation.
         // This is the view which becomes the EchoPlayer's persistent view.
-        ViewRotation controllerView = captureViewRotation(realPlayer);
+        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(realPlayer);
         Entity controlledVehicle = realPlayer.getVehicle();
         if (controlledVehicle != null) {
             realPlayer.stopRiding();
@@ -775,12 +775,12 @@ public class EchoPlayerManager {
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
             synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
-            sendUnpossessPacket(realPlayer);
+            sendUnpossessPacket(realPlayer, state.echoPlayer);
             reshowEchoToReal(state);
             removeCrashBackup(realPlayer);
         } else {
             restoreRealPlayerForRespawn(state);
-            sendUnpossessPacket(realPlayer);
+            sendUnpossessPacket(realPlayer, state.echoPlayer);
             removeCrashBackup(realPlayer);
         }
         removeShell(state);
@@ -790,6 +790,19 @@ public class EchoPlayerManager {
             synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
         }
         updateLogicalSleepStatus(state);
+    }
+
+    public static void updatePossessedClientView(ServerPlayer realPlayer, float yRot, float xRot, float yHeadRot, float yBodyRot) {
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        if (state == null || !Float.isFinite(yRot) || !Float.isFinite(xRot) || !Float.isFinite(yHeadRot) || !Float.isFinite(yBodyRot)) {
+            return;
+        }
+        state.clientView = new ViewRotation(
+            Mth.wrapDegrees(yRot),
+            Mth.clamp(xRot, -90.0f, 90.0f),
+            Mth.wrapDegrees(yHeadRot),
+            Mth.wrapDegrees(yBodyRot)
+        );
     }
 
     public static void revertAllPossessions(EchoServerPlayer echoPlayer) {
@@ -830,24 +843,24 @@ public class EchoPlayerManager {
             shellPlayer.discard();
             return;
         }
-        ViewRotation controllerView = captureViewRotation(state.realPlayer);
+        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(state.realPlayer);
         PendingEchoReshow pendingEchoReshow = new PendingEchoReshow(state.echoPlayer);
         commitControllerContainer(state);
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, false);
+        applyViewRotation(state.echoPlayer, controllerView);
         removeControllerState(state);
         restoreRealPlayerFromShell(state, false);
         teleportRealPlayerToShell(state);
         removeShell(state);
         showControllerToObservers(state.realPlayer);
-        sendUnpossessPacket(state.realPlayer);
+        sendUnpossessPacket(state.realPlayer, state.echoPlayer);
         PENDING_ECHO_RESHOWS.put(state.realPlayer.getUUID(), pendingEchoReshow);
         float recordedAmount = amount > 0.0f ? amount : state.realPlayer.getMaxHealth();
         state.realPlayer.getCombatTracker().recordDamage(source, recordedAmount);
         state.realPlayer.setHealth(0.0f);
         state.realPlayer.die(source);
         restoreEchoStateAndWorld(state.echoPlayer, pendingEchoReshow);
-        applyViewRotation(state.echoPlayer, controllerView);
         removeCrashBackup(state.realPlayer);
     }
 
@@ -865,7 +878,7 @@ public class EchoPlayerManager {
                 removeShell(state);
                 restoreRealPlayerFromShell(state, true);
                 showControllerToObservers(state.realPlayer);
-                sendUnpossessPacket(state.realPlayer);
+                sendUnpossessPacket(state.realPlayer, null);
                 removeCrashBackup(state.realPlayer);
             }
         }
@@ -963,7 +976,7 @@ public class EchoPlayerManager {
                 restoreRealPlayerFromShell(state, true);
                 copyEchoSharedStateToRealController(state);
                 showControllerToObservers(state.realPlayer);
-                sendUnpossessPacket(state.realPlayer);
+                sendUnpossessPacket(state.realPlayer, reshowEcho ? state.echoPlayer : null);
                 if (reshowEcho) {
                     reshowEchoToReal(state);
                 }
@@ -972,7 +985,7 @@ public class EchoPlayerManager {
                 }
             } else {
                 restoreRealPlayerForRespawn(state);
-                sendUnpossessPacket(state.realPlayer);
+                sendUnpossessPacket(state.realPlayer, null);
             }
             removeCrashBackup(state.realPlayer);
         }
@@ -1249,6 +1262,10 @@ public class EchoPlayerManager {
         player.setXRot(view.xRot);
         player.yHeadRot = view.yHeadRot;
         player.yBodyRot = view.yBodyRot;
+        player.yRotO = view.yRot;
+        player.xRotO = view.xRot;
+        player.yHeadRotO = view.yHeadRot;
+        player.yBodyRotO = view.yBodyRot;
     }
 
     /**
@@ -1544,12 +1561,19 @@ public class EchoPlayerManager {
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
         writeViewRotation(buf, captureViewRotation(state.realPlayer));
+        writeViewRotation(buf, state.originalBodyView);
         Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
     }
 
-    private static void sendUnpossessPacket(ServerPlayer realPlayer) {
+    private static void sendUnpossessPacket(ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         writeViewRotation(buf, captureViewRotation(realPlayer));
+        boolean hasEchoRotation = echoPlayer != null && !echoPlayer.isRemoved() && !echoPlayer.isDeadOrDying();
+        buf.writeBoolean(hasEchoRotation);
+        if (hasEchoRotation) {
+            buf.writeInt(echoPlayer.getId());
+            writeViewRotation(buf, captureViewRotation(echoPlayer));
+        }
         Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
     }
 
@@ -1620,6 +1644,7 @@ public class EchoPlayerManager {
         int lastFoodTickTimer;
         int lastFoodDataLevel;
         public float lastAbsorption;
+        ViewRotation clientView;
         int lastFireTicks;
         int lastAirSupply;
         int lastTicksFrozen;

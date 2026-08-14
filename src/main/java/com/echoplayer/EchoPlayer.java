@@ -31,6 +31,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 @Mod(value="echoplayer")
 public class EchoPlayer {
+    private static final String NETWORK_PROTOCOL_VERSION = "3";
     public static SimpleChannel CHANNEL;
 
     public EchoPlayer() {
@@ -42,14 +43,16 @@ public class EchoPlayer {
             FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent event) -> event.register(Keybinds.UNPOSSESS_KEY));
             MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent event) -> {
                 if (event.phase == TickEvent.Phase.END) {
-                    Keybinds.clientTick(Minecraft.getInstance());
+                    Minecraft minecraft = Minecraft.getInstance();
+                    ClientPossessionData.clientTick(minecraft);
+                    Keybinds.clientTick(minecraft);
                 }
             });
         });
     }
 
     private void setupNetwork(FMLCommonSetupEvent event) {
-        CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation("echoplayer", "main"), () -> "1", "1"::equals, "1"::equals);
+        CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation("echoplayer", "main"), () -> NETWORK_PROTOCOL_VERSION, NETWORK_PROTOCOL_VERSION::equals, NETWORK_PROTOCOL_VERSION::equals);
         CHANNEL.registerMessage(0, CustomPayload.class, (msg, buf) -> {
             buf.writeResourceLocation(msg.id);
             buf.writeBytes(msg.buf);
@@ -90,6 +93,8 @@ public class EchoPlayer {
         ServerPlayer sender = ((NetworkEvent.Context)ctx.get()).getSender();
         if (sender != null && msg.id.equals(NetworkPackets.UNPOSSESS_PACKET)) {
             ServerPacketHandler.handleUnpossessPacket(sender, msg.buf);
+        } else if (sender != null && msg.id.equals(NetworkPackets.VIEW_ROTATION_PACKET)) {
+            ServerPacketHandler.handleViewRotationPacket(sender, msg.buf);
         }
     }
 
