@@ -265,14 +265,7 @@ public class EchoPlayerManager {
     }
 
     private static boolean isInternalBoatPlacementEntity(ControllerState state, Entity entity) {
-        if (entity == state.echoPlayer || entity == state.shellPlayer) {
-            return true;
-        }
-        if (entity instanceof ServerPlayer player) {
-            ControllerState otherState = CONTROLLERS.get(player.getUUID());
-            return otherState != null && otherState.session == state.session;
-        }
-        return false;
+        return entity == state.echoPlayer;
     }
 
     public static void tickPossessedEffects(ServerPlayer realPlayer) {
