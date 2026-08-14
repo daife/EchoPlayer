@@ -991,6 +991,9 @@ public class EchoPlayerManager {
             syncHealthState(state, realPlayer, echoPlayer);
         }
         syncAbsorptionState(state, realPlayer, echoPlayer);
+        if (echoPlayer.getRemainingFireTicks() < realPlayer.getRemainingFireTicks()) {
+            echoPlayer.setRemainingFireTicks(realPlayer.getRemainingFireTicks());
+        }
         StateSynchronizer.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
         StateSynchronizer.synchronizeUsingItem(realPlayer, echoPlayer);
         if (inventoryChanged) {
@@ -1051,6 +1054,9 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeEffects(echoPlayer, realPlayer);
         StateSynchronizer.synchronizeAttributes(echoPlayer, realPlayer, synchronizeAllAttributes);
         StateSynchronizer.copySprintingState(echoPlayer, realPlayer);
+        if (realPlayer.getRemainingFireTicks() < echoPlayer.getRemainingFireTicks()) {
+            realPlayer.setRemainingFireTicks(echoPlayer.getRemainingFireTicks());
+        }
         boolean healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0
             || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0
             || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel()
@@ -1219,6 +1225,7 @@ public class EchoPlayerManager {
             teleportRealPlayerToShell(state);
             copyRidingTransform(shellPlayer, realPlayer);
         }
+        realPlayer.setRemainingFireTicks(shellPlayer.getRemainingFireTicks());
         if (shellPlayer.isSleeping()) {
             StateSynchronizer.transferSleepingState(shellPlayer, realPlayer);
             realPlayer.serverLevel().updateSleepingPlayerList();
