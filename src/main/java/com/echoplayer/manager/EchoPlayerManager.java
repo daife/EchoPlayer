@@ -3,54 +3,31 @@ package com.echoplayer.manager;
 import com.echoplayer.Constants;
 import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
-import com.echoplayer.mixin.AttributeInstanceAccessor;
-import com.echoplayer.mixin.AttributeMapAccessor;
 import com.echoplayer.mixin.CommandSourceStackAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
-import com.echoplayer.mixin.MobEffectInstanceAccessor;
-import com.echoplayer.mixin.PlayerAccessor;
-import com.echoplayer.mixin.ServerGamePacketListenerImplAccessor;
 import com.echoplayer.network.EchoConnection;
 import com.echoplayer.network.EchoServerGamePacketListenerImpl;
 import com.echoplayer.network.NetworkPackets;
 import com.echoplayer.platform.Services;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.mojang.authlib.Agent;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.ProfileLookupCallback;
-import com.mojang.authlib.properties.Property;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.datafixers.util.Pair;
 import io.netty.buffer.Unpooled;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
@@ -60,10 +37,8 @@ import net.minecraft.network.chat.OutgoingChatMessage;
 import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundAddPlayerPacket;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
-import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
@@ -75,40 +50,28 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
-import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.EntityGetter;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelResource;
 
 public class EchoPlayerManager {
-    private static final UUID SPRINTING_SPEED_MODIFIER_ID = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
-    private static final Set<UUID> MOVEMENT_SPEED_STATE_MODIFIER_IDS = Set.of(SPRINTING_SPEED_MODIFIER_ID, UUID.fromString("87f46a96-686f-4796-b035-22e16ee9e038"), UUID.fromString("1eaf83ff-7207-4596-b37a-d7a07b3ec4ce"));
-    private static final Map<UUID, ControllerState> CONTROLLERS = new ConcurrentHashMap<UUID, ControllerState>();
-    private static final Map<UUID, PossessionSession> SESSIONS = new ConcurrentHashMap<UUID, PossessionSession>();
-    private static final Map<UUID, PendingEchoReshow> PENDING_ECHO_RESHOWS = new ConcurrentHashMap<UUID, PendingEchoReshow>();
+    private static final Map<UUID, ControllerState> CONTROLLERS = new java.util.concurrent.ConcurrentHashMap<UUID, ControllerState>();
+    private static final Map<UUID, PossessionSession> SESSIONS = new java.util.concurrent.ConcurrentHashMap<UUID, PossessionSession>();
+    private static final Map<UUID, PendingEchoReshow> PENDING_ECHO_RESHOWS = new java.util.concurrent.ConcurrentHashMap<UUID, PendingEchoReshow>();
 
     public static GameProfile createStableProfile(String name) {
         return new GameProfile(UUIDUtil.createOfflinePlayerUUID(name), name);
@@ -116,7 +79,7 @@ public class EchoPlayerManager {
 
     public static UUID getLogicalOwnerUUID(Player player) {
         if (player instanceof ServerPlayer) {
-            return EchoPlayerManager.getLogicalPlayer((ServerPlayer)player).getUUID();
+            return getLogicalPlayer((ServerPlayer)player).getUUID();
         }
         return player.getUUID();
     }
@@ -163,23 +126,23 @@ public class EchoPlayerManager {
     }
 
     public static ServerPlayer getIdentityAvatar(EntityGetter level, UUID authenticatedPlayerId) {
-        ServerPlayer avatar = EchoPlayerManager.getIdentityAvatar(authenticatedPlayerId);
+        ServerPlayer avatar = getIdentityAvatar(authenticatedPlayerId);
         return avatar != null && avatar.level() == level ? avatar : null;
     }
 
     public static Entity getLogicalDamageEntity(Entity entity) {
-        if (entity instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer)entity;
-            return EchoPlayerManager.getLogicalPlayer(player);
+        if (entity instanceof ServerPlayer player) {
+            return getLogicalPlayer(player);
         }
         return entity;
     }
 
     public static ServerPlayer getAuthenticatedPlayer(ServerPlayer logicalPlayer) {
-        EchoServerPlayer echoPlayer;
-        ServerPlayer possessor;
-        if (logicalPlayer instanceof EchoServerPlayer && (possessor = EchoPlayerManager.getPossessor(echoPlayer = (EchoServerPlayer)logicalPlayer)) != null) {
-            return possessor;
+        if (logicalPlayer instanceof EchoServerPlayer echoPlayer) {
+            ServerPlayer possessor = getPossessor(echoPlayer);
+            if (possessor != null) {
+                return possessor;
+            }
         }
         return logicalPlayer;
     }
@@ -195,7 +158,7 @@ public class EchoPlayerManager {
     public static List<ServerPlayer> projectSelectorPlayers(List<ServerPlayer> players) {
         ArrayList<ServerPlayer> projected = new ArrayList<ServerPlayer>(players.size());
         for (ServerPlayer player : players) {
-            projected.add(EchoPlayerManager.projectSelectorPlayer(player));
+            projected.add(projectSelectorPlayer(player));
         }
         return projected;
     }
@@ -206,7 +169,7 @@ public class EchoPlayerManager {
         }
         ArrayList<ServerPlayer> projected = new ArrayList<ServerPlayer>(players.size() + CONTROLLERS.size());
         for (ServerPlayer player : players) {
-            if (player instanceof EchoServerPlayer && EchoPlayerManager.isPossessed(player)) {
+            if (player instanceof EchoServerPlayer && isPossessed(player)) {
                 continue;
             }
             projected.add(player);
@@ -232,11 +195,14 @@ public class EchoPlayerManager {
 
     public static List<ServerPlayer> getProjectedLevelPlayers(ServerLevel level, Predicate<? super ServerPlayer> predicate, int limit) {
         ArrayList<ServerPlayer> projected = new ArrayList<ServerPlayer>(Math.min(limit, level.getServer().getPlayerCount()));
-        for (ServerPlayer player : EchoPlayerManager.projectSelectorPlayers(level.getServer().getPlayerList().getPlayers())) {
-            if (player.serverLevel() != level || !predicate.test(player)) continue;
+        for (ServerPlayer player : projectSelectorPlayers(level.getServer().getPlayerList().getPlayers())) {
+            if (player.serverLevel() != level || !predicate.test(player)) {
+                continue;
+            }
             projected.add(player);
-            if (projected.size() < limit) continue;
-            break;
+            if (projected.size() >= limit) {
+                break;
+            }
         }
         return projected;
     }
@@ -244,33 +210,29 @@ public class EchoPlayerManager {
     public static List<? extends Entity> filterLogicalSelectorEntities(List<? extends Entity> entities) {
         ArrayList<Entity> filtered = new ArrayList<Entity>(entities.size());
         for (Entity entity : entities) {
-            ServerPlayer player;
-            if (entity instanceof ServerPlayer && EchoPlayerManager.isPossessing(player = (ServerPlayer)entity)) continue;
+            if (entity instanceof ServerPlayer player && isPossessing(player)) {
+                continue;
+            }
             filtered.add(entity);
         }
         return filtered;
     }
 
     public static int getInheritedPermissionLevel(EchoServerPlayer echoPlayer) {
-        ServerPlayer authenticatedPlayer = EchoPlayerManager.getAuthenticatedPlayer(echoPlayer);
+        ServerPlayer authenticatedPlayer = getAuthenticatedPlayer(echoPlayer);
         if (authenticatedPlayer == echoPlayer) {
             return -1;
         }
-        for (int level = 4; level >= 0; --level) {
-            if (!authenticatedPlayer.hasPermissions(level)) continue;
-            return level;
+        for (int level = 4; level >= 0; level--) {
+            if (authenticatedPlayer.hasPermissions(level)) {
+                return level;
+            }
         }
         return 0;
     }
 
     public static List<Entity> filterControlledBoatPlacementEntities(Entity source, List<Entity> entities) {
-        ServerPlayer controller;
-        block9: {
-            block8: {
-                if (!(source instanceof ServerPlayer)) break block8;
-                controller = (ServerPlayer)source;
-                if (!entities.isEmpty()) break block9;
-            }
+        if (!(source instanceof ServerPlayer controller) || entities.isEmpty()) {
             return entities;
         }
         ControllerState state = CONTROLLERS.get(controller.getUUID());
@@ -278,17 +240,21 @@ public class EchoPlayerManager {
             return entities;
         }
         List<Entity> filtered = null;
-        for (int i = 0; i < entities.size(); ++i) {
+        for (int i = 0; i < entities.size(); i++) {
             Entity entity = entities.get(i);
-            if (EchoPlayerManager.isInternalBoatPlacementEntity(state, entity)) {
-                if (filtered != null) continue;
+            if (isInternalBoatPlacementEntity(state, entity)) {
+                if (filtered != null) {
+                    continue;
+                }
                 filtered = new ArrayList<Entity>(entities.size() - 1);
-                for (int j = 0; j < i; ++j) {
+                for (int j = 0; j < i; j++) {
                     filtered.add(entities.get(j));
                 }
                 continue;
             }
-            if (filtered == null) continue;
+            if (filtered == null) {
+                continue;
+            }
             filtered.add(entity);
         }
         return filtered != null ? filtered : entities;
@@ -298,17 +264,13 @@ public class EchoPlayerManager {
         if (entity == state.echoPlayer || entity == state.shellPlayer) {
             return true;
         }
-        if (entity instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer)entity;
+        if (entity instanceof ServerPlayer player) {
             ControllerState otherState = CONTROLLERS.get(player.getUUID());
             return otherState != null && otherState.session == state.session;
         }
         return false;
     }
 
-    /*
-     * WARNING - Removed try catching itself - possible behaviour change.
-     */
     public static void tickPossessedEffects(ServerPlayer realPlayer) {
         ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
         if (state == null || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying()) {
@@ -321,15 +283,14 @@ public class EchoPlayerManager {
             session.tickingCanonicalEffects = true;
             try {
                 ((LivingEntityInvoker)((Object)state.echoPlayer)).echoplayer$tickEffects();
-            }
-            finally {
+            } finally {
                 session.tickingCanonicalEffects = false;
             }
         }
-        EchoPlayerManager.synchronizeEffects(state.echoPlayer, realPlayer);
-        EchoPlayerManager.synchronizeAttributes(state.echoPlayer, realPlayer, false);
+        StateSynchronizer.synchronizeEffects(state.echoPlayer, realPlayer);
+        StateSynchronizer.synchronizeAttributes(state.echoPlayer, realPlayer, false);
         realPlayer.setAbsorptionAmount(state.echoPlayer.getAbsorptionAmount());
-        EchoPlayerManager.hideControllerBody(realPlayer);
+        StateSynchronizer.hideControllerBody(realPlayer);
         realPlayer.absMoveTo(state.echoPlayer.getX(), state.echoPlayer.getY(), state.echoPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
     }
 
@@ -339,27 +300,27 @@ public class EchoPlayerManager {
     }
 
     public static void syncLogicalStateAfterExternalMutation(Entity entity) {
-        ServerPlayer player;
-        ControllerState state;
-        if (entity instanceof EchoServerPlayer) {
-            EchoServerPlayer echoPlayer = (EchoServerPlayer)entity;
+        if (entity instanceof EchoServerPlayer echoPlayer) {
             if (echoPlayer.linkedRealPlayer == null) {
                 PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
                 if (session != null) {
-                    EchoPlayerManager.syncEchoStateToController(session);
+                    syncEchoStateToController(session);
                 }
                 return;
             }
         }
-        if (entity instanceof ServerPlayer && (state = CONTROLLERS.get((player = (ServerPlayer)entity).getUUID())) != null && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying()) {
-            EchoPlayerManager.copyRealStateToEcho(state, true);
-            EchoPlayerManager.syncCanonicalStateToController(state.session);
+        if (entity instanceof ServerPlayer player) {
+            ControllerState state = CONTROLLERS.get(player.getUUID());
+            if (state != null && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying()) {
+                copyRealStateToEcho(state, true);
+                syncCanonicalStateToController(state.session);
+            }
         }
     }
 
     public static void syncLogicalStateAfterExternalMutation(Collection<? extends Entity> entities) {
         for (Entity entity : entities) {
-            EchoPlayerManager.syncLogicalStateAfterExternalMutation(entity);
+            syncLogicalStateAfterExternalMutation(entity);
         }
     }
 
@@ -371,26 +332,26 @@ public class EchoPlayerManager {
         if (session == null) {
             return;
         }
-        EchoPlayerManager.updateEchoEquipment(echoPlayer);
-        EchoPlayerManager.syncCanonicalStateToController(session);
+        StateSynchronizer.updateEchoEquipment(echoPlayer);
+        syncCanonicalStateToController(session);
     }
 
     public static ServerPlayer getCommandExecutor(ServerPlayer player) {
-        EchoServerPlayer echoPlayer;
-        ServerPlayer possessor;
-        if (player instanceof EchoServerPlayer && (possessor = EchoPlayerManager.getPossessor(echoPlayer = (EchoServerPlayer)player)) != null) {
-            return possessor;
+        if (player instanceof EchoServerPlayer echoPlayer) {
+            ServerPlayer possessor = getPossessor(echoPlayer);
+            if (possessor != null) {
+                return possessor;
+            }
         }
         return player;
     }
 
     public static ServerPlayer getCommandExecutor(CommandSourceStack source) throws CommandSyntaxException {
         CommandSource commandSource = ((CommandSourceStackAccessor)((Object)source)).echoplayer$getSource();
-        if (commandSource instanceof ServerPlayer) {
-            ServerPlayer player = (ServerPlayer)commandSource;
-            return EchoPlayerManager.getCommandExecutor(player);
+        if (commandSource instanceof ServerPlayer player) {
+            return getCommandExecutor(player);
         }
-        return EchoPlayerManager.getCommandExecutor(source.getPlayerOrException());
+        return getCommandExecutor(source.getPlayerOrException());
     }
 
     public static CommandSourceStack createPossessedCommandSource(ServerPlayer realPlayer) {
@@ -407,19 +368,17 @@ public class EchoPlayerManager {
         if (state == null || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying() || realPlayer.isDeadOrDying()) {
             return;
         }
-        EchoPlayerManager.syncEchoStateToController(state.session);
+        syncEchoStateToController(state.session);
     }
 
-    /*
-     * Enabled force condition propagation
-     * Lifted jumps to return sites
-     */
     public static boolean isPossessed(Entity entity) {
-        if (!(entity instanceof EchoServerPlayer)) return false;
-        EchoServerPlayer echoPlayer = (EchoServerPlayer)entity;
-        if (echoPlayer.linkedRealPlayer != null) return false;
-        if (!SESSIONS.containsKey(echoPlayer.getUUID())) return false;
-        return true;
+        if (!(entity instanceof EchoServerPlayer echoPlayer)) {
+            return false;
+        }
+        if (echoPlayer.linkedRealPlayer != null) {
+            return false;
+        }
+        return SESSIONS.containsKey(echoPlayer.getUUID());
     }
 
     public static boolean isPossessing(ServerPlayer player) {
@@ -428,7 +387,7 @@ public class EchoPlayerManager {
 
     public static int[] projectPassengerIdsForViewer(ServerPlayer viewer, int[] passengerIds) {
         int[] projected = null;
-        for (int i = 0; i < passengerIds.length; ++i) {
+        for (int i = 0; i < passengerIds.length; i++) {
             int passengerId = passengerIds[i];
             for (ControllerState state : CONTROLLERS.values()) {
                 if (state.realPlayer == viewer || state.realPlayer.getId() != passengerId || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying()) {
@@ -445,18 +404,14 @@ public class EchoPlayerManager {
     }
 
     public static boolean shouldDisableCollision(Entity e1, Entity e2) {
-        if (e1 instanceof ServerPlayer) {
-            ServerPlayer p1 = (ServerPlayer)e1;
-            if (e2 instanceof EchoServerPlayer) {
-                EchoServerPlayer f2 = (EchoServerPlayer)e2;
-                return EchoPlayerManager.getPossessed(p1) == f2;
+        if (e1 instanceof ServerPlayer p1) {
+            if (e2 instanceof EchoServerPlayer f2) {
+                return getPossessed(p1) == f2;
             }
         }
-        if (e2 instanceof ServerPlayer) {
-            ServerPlayer p2 = (ServerPlayer)e2;
-            if (e1 instanceof EchoServerPlayer) {
-                EchoServerPlayer f1 = (EchoServerPlayer)e1;
-                return EchoPlayerManager.getPossessed(p2) == f1;
+        if (e2 instanceof ServerPlayer p2) {
+            if (e1 instanceof EchoServerPlayer f1) {
+                return getPossessed(p2) == f1;
             }
         }
         return false;
@@ -484,9 +439,12 @@ public class EchoPlayerManager {
     public static List<EchoServerPlayer> getEchoPlayersByName(MinecraftServer server, String name) {
         ArrayList<EchoServerPlayer> echoPlayers = new ArrayList<EchoServerPlayer>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!(player instanceof EchoServerPlayer)) continue;
-            EchoServerPlayer echoPlayer = (EchoServerPlayer)player;
-            if (echoPlayer.linkedRealPlayer != null || !player.getGameProfile().getName().equalsIgnoreCase(name)) continue;
+            if (!(player instanceof EchoServerPlayer echoPlayer)) {
+                continue;
+            }
+            if (echoPlayer.linkedRealPlayer != null || !player.getGameProfile().getName().equalsIgnoreCase(name)) {
+                continue;
+            }
             echoPlayers.add(echoPlayer);
         }
         return echoPlayers;
@@ -495,9 +453,12 @@ public class EchoPlayerManager {
     public static List<String> getEchoPlayerNames(MinecraftServer server) {
         ArrayList<String> names = new ArrayList<String>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!(player instanceof EchoServerPlayer)) continue;
-            EchoServerPlayer echoPlayer = (EchoServerPlayer)player;
-            if (echoPlayer.linkedRealPlayer != null) continue;
+            if (!(player instanceof EchoServerPlayer echoPlayer)) {
+                continue;
+            }
+            if (echoPlayer.linkedRealPlayer != null) {
+                continue;
+            }
             names.add(player.getGameProfile().getName());
         }
         return names;
@@ -521,11 +482,11 @@ public class EchoPlayerManager {
     }
 
     public static EchoServerPlayer spawnEchoPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, boolean persistent, UUID ownerId) {
-        String conflict = EchoPlayerManager.getSpawnConflict(server, profile);
+        String conflict = getSpawnConflict(server, profile);
         if (conflict != null) {
             throw new IllegalArgumentException(conflict);
         }
-        return EchoPlayerManager.createEchoPlayer(server, level, profile, persistent, ownerId);
+        return createEchoPlayer(server, level, profile, persistent, ownerId);
     }
 
     private static EchoServerPlayer createEchoPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, boolean persistent, UUID ownerId) {
@@ -542,131 +503,15 @@ public class EchoPlayerManager {
     }
 
     public static EchoServerPlayer spawnEchoPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, UUID ownerId) {
-        return EchoPlayerManager.spawnEchoPlayer(server, level, profile, true, ownerId);
+        return spawnEchoPlayer(server, level, profile, true, ownerId);
     }
 
     public static EchoServerPlayer respawnPersistentEchoPlayer(MinecraftServer server, ServerLevel level, GameProfile profile) {
-        return EchoPlayerManager.spawnEchoPlayer(server, level, profile, false, null);
-    }
-
-    public static void updateSkinAsync(final MinecraftServer server, final EchoServerPlayer echoPlayer, final String skinSourceUsername, final CommandSourceStack source) {
-        CompletableFuture.runAsync(() -> server.getProfileRepository().findProfilesByNames(new String[]{skinSourceUsername}, Agent.MINECRAFT, new ProfileLookupCallback(){
-
-            public void onProfileLookupSucceeded(GameProfile profile) {
-                GameProfile filledProfile = server.getSessionService().fillProfileProperties(profile, true);
-                server.execute(() -> {
-                    if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
-                        return;
-                    }
-                    GameProfile targetProfile = echoPlayer.getGameProfile();
-                    targetProfile.getProperties().removeAll("textures");
-                    for (Property property : filledProfile.getProperties().get("textures")) {
-                        targetProfile.getProperties().put("textures", property);
-                    }
-                    EchoPlayerSavedData.get(server).setDirty();
-                    EchoPlayerManager.resendSkinPackets(server, echoPlayer);
-                    source.sendSuccess(() -> Component.literal("Successfully updated skin for " + targetProfile.getName() + " to match " + skinSourceUsername), true);
-                });
-            }
-
-            public void onProfileLookupFailed(GameProfile profile, Exception e) {
-                server.execute(() -> source.sendFailure(Component.literal("Could not find player: " + skinSourceUsername)));
-            }
-        }));
-    }
-
-    private static String normalizeSkinUrl(String url) {
-        Matcher nameMcMatcher = Pattern.compile("namemc\\.com/skin/([a-zA-Z0-9]+)").matcher(url);
-        if (nameMcMatcher.find()) {
-            return "https://s.namemc.com/i/" + nameMcMatcher.group(1) + ".png";
-        }
-        Matcher novaSkinMatcher = Pattern.compile("novask\\.in/([0-9]+)").matcher(url);
-        if (novaSkinMatcher.find() && !url.endsWith(".png")) {
-            return "http://novask.in/" + novaSkinMatcher.group(1) + ".png";
-        }
-        Matcher imgurMatcher = Pattern.compile("imgur\\.com/([a-zA-Z0-9]+)$").matcher(url);
-        if (imgurMatcher.find()) {
-            return "https://i.imgur.com/" + imgurMatcher.group(1) + ".png";
-        }
-        return url;
-    }
-
-    public static void updateSkinFromUrlAsync(MinecraftServer server, EchoServerPlayer echoPlayer, String rawUrl, CommandSourceStack source) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                String url = EchoPlayerManager.normalizeSkinUrl(rawUrl);
-                HttpClient client = HttpClient.newHttpClient();
-                JsonObject requestBody = new JsonObject();
-                requestBody.addProperty("url", url);
-                requestBody.addProperty("visibility", (Number)0);
-                HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://api.mineskin.org/generate/url")).header("Content-Type", "application/json").header("User-Agent", "EchoPlayer/1.0").POST(HttpRequest.BodyPublishers.ofString(requestBody.toString())).build();
-                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() == 200) {
-                    JsonObject json = JsonParser.parseString((String)response.body()).getAsJsonObject();
-                    JsonObject data = json.getAsJsonObject("data");
-                    JsonObject texture = data.getAsJsonObject("texture");
-                    String value = texture.get("value").getAsString();
-                    String signature = texture.get("signature").getAsString();
-                    server.execute(() -> {
-                        if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
-                            return;
-                        }
-                        GameProfile targetProfile = echoPlayer.getGameProfile();
-                        targetProfile.getProperties().removeAll("textures");
-                        targetProfile.getProperties().put("textures", new Property("textures", value, signature));
-                        EchoPlayerSavedData.get(server).setDirty();
-                        EchoPlayerManager.resendSkinPackets(server, echoPlayer);
-                        source.sendSuccess(() -> Component.literal("Successfully updated skin from URL."), true);
-                    });
-                } else {
-                    server.execute(() -> {
-                        try {
-                            JsonObject err = JsonParser.parseString((String)((String)response.body())).getAsJsonObject();
-                            String msg = err.has("error") ? err.get("error").getAsString() : "Unknown error";
-                            source.sendFailure(Component.literal("Failed to generate skin: " + msg));
-                        }
-                        catch (Exception ex) {
-                            source.sendFailure(Component.literal("Failed to generate skin. Status code: " + response.statusCode()));
-                        }
-                    });
-                }
-            }
-            catch (Exception e) {
-                server.execute(() -> source.sendFailure(Component.literal("Exception while generating skin: " + e.getMessage())));
-            }
-        });
-    }
-
-    public static void clearSkin(MinecraftServer server, EchoServerPlayer echoPlayer, CommandSourceStack source) {
-        if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
-            return;
-        }
-        GameProfile targetProfile = echoPlayer.getGameProfile();
-        targetProfile.getProperties().removeAll("textures");
-        EchoPlayerSavedData.get(server).setDirty();
-        EchoPlayerManager.resendSkinPackets(server, echoPlayer);
-        source.sendSuccess(() -> Component.literal("Successfully cleared skin for " + targetProfile.getName()), true);
-    }
-
-    private static void resendSkinPackets(MinecraftServer server, EchoServerPlayer echoPlayer) {
-        ClientboundPlayerInfoRemovePacket removePacket = new ClientboundPlayerInfoRemovePacket(List.of(echoPlayer.getUUID()));
-        ClientboundPlayerInfoUpdatePacket updatePacket = ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(echoPlayer));
-        ClientboundRemoveEntitiesPacket removeEntityPacket = new ClientboundRemoveEntitiesPacket(echoPlayer.getId());
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.connection.send(removePacket);
-            player.connection.send(updatePacket);
-            if (player == echoPlayer || EchoPlayerManager.getPossessed(player) == echoPlayer || player.level().dimension() != echoPlayer.level().dimension()) continue;
-            int trackingChunks = Math.min(echoPlayer.getType().clientTrackingRange(), server.getPlayerList().getViewDistance());
-            double trackingRange = (double)trackingChunks * 16.0;
-            if (!(echoPlayer.distanceToSqr(player) <= trackingRange * trackingRange)) continue;
-            player.connection.send(removeEntityPacket);
-            EchoPlayerManager.sendPlayerEntityToViewer(echoPlayer, player);
-        }
+        return spawnEchoPlayer(server, level, profile, false, null);
     }
 
     public static String possess(ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
-        Entity realVehicle;
-        EchoPlayerManager.restorePendingEchoState(echoPlayer);
+        restorePendingEchoState(echoPlayer);
         if (CONTROLLERS.containsKey(realPlayer.getUUID())) {
             return "You are already controlling an EchoPlayer.";
         }
@@ -686,45 +531,46 @@ public class EchoPlayerManager {
             session = new PossessionSession(echoPlayer);
             SESSIONS.put(echoPlayer.getUUID(), session);
         }
-        EchoPlayerManager.createCrashBackup(realPlayer);
-        EchoServerPlayer shell = EchoPlayerManager.createOriginalBodyShell(realPlayer);
+        createCrashBackup(realPlayer);
+        EchoServerPlayer shell = createOriginalBodyShell(realPlayer);
         ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session);
         ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
         if (previousState != null) {
-            EchoPlayerManager.removeShellEntity(shell, realPlayer.server);
+            removeShellEntity(shell, realPlayer.server);
             return "You are already controlling an EchoPlayer.";
         }
         session.controller = state;
-        if ((realVehicle = realPlayer.getVehicle()) != null) {
+        Entity realVehicle = realPlayer.getVehicle();
+        if (realVehicle != null) {
             realPlayer.stopRiding();
         }
         Entity echoVehicle = echoPlayer.getVehicle();
         if (echoVehicle != null) {
             echoPlayer.stopRiding();
         }
-        EchoPlayerManager.teleportRealPlayerToEcho(state, true);
-        EchoPlayerManager.copyEchoStateToRealController(state);
-        EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
+        teleportRealPlayerToEcho(state, true);
+        copyEchoStateToRealController(state);
+        copyRidingTransform(echoPlayer, realPlayer);
         if (echoPlayer.isSleeping()) {
-            EchoPlayerManager.transferSleepingState(echoPlayer, realPlayer);
+            StateSynchronizer.transferSleepingState(echoPlayer, realPlayer);
         }
-        EchoPlayerManager.syncControlledEchoToController(state);
-        EchoPlayerManager.copyRealStateToEcho(state, true);
-        EchoPlayerManager.hideControllerBody(realPlayer);
-        EchoPlayerManager.sendPossessPacket(state);
-        EchoPlayerManager.hideEchoFromReal(state);
-        EchoPlayerManager.hideControllerFromObservers(realPlayer);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, true);
+        StateSynchronizer.hideControllerBody(realPlayer);
+        sendPossessPacket(state);
+        hideEchoFromReal(state);
+        hideControllerFromObservers(realPlayer);
         if (realVehicle != null) {
-            EchoPlayerManager.copyRidingTransform(realPlayer, shell);
+            copyRidingTransform(realPlayer, shell);
             shell.startRiding(realVehicle, true);
-            EchoPlayerManager.copyRidingTransform(realPlayer, shell);
+            copyRidingTransform(realPlayer, shell);
         }
         if (echoVehicle != null) {
-            EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
+            copyRidingTransform(echoPlayer, realPlayer);
             realPlayer.startRiding(echoVehicle, true);
-            EchoPlayerManager.copyRidingTransform(echoPlayer, realPlayer);
+            copyRidingTransform(echoPlayer, realPlayer);
         }
-        EchoPlayerManager.updateLogicalSleepStatus(state);
+        updateLogicalSleepStatus(state);
         return null;
     }
 
@@ -735,7 +581,7 @@ public class EchoPlayerManager {
         }
         boolean damaged = state.echoPlayer.hurt(source, amount);
         if (damaged && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            EchoPlayerManager.copyRealStateToEcho(state, true);
+            copyRealStateToEcho(state, true);
         }
         return damaged;
     }
@@ -775,8 +621,8 @@ public class EchoPlayerManager {
         boolean added = state.echoPlayer.getInventory().add(stack);
         if (added) {
             state.echoPlayer.take(itemEntity, count);
-            EchoPlayerManager.updateEchoEquipment(state.echoPlayer);
-            EchoPlayerManager.syncCanonicalStateToController(state.session);
+            StateSynchronizer.updateEchoEquipment(state.echoPlayer);
+            syncCanonicalStateToController(state.session);
         }
         return added;
     }
@@ -788,8 +634,8 @@ public class EchoPlayerManager {
         }
         ControllerState controller = session.controller;
         if (controller != null && !controller.realPlayer.isDeadOrDying() && !controller.realPlayer.hasDisconnected()) {
-            EchoPlayerManager.syncControlledEchoToController(controller);
-            EchoPlayerManager.copyRealStateToEcho(controller, false);
+            syncControlledEchoToController(controller);
+            copyRealStateToEcho(controller, false);
         }
     }
 
@@ -798,11 +644,11 @@ public class EchoPlayerManager {
         if (session != null) {
             ControllerState state = session.controller;
             if (state != null) {
-                EchoPlayerManager.copyRealStateToEcho(state, true);
+                copyRealStateToEcho(state, true);
                 ServerPlayer realPlayer = state.realPlayer;
                 if (!realPlayer.isDeadOrDying() && !realPlayer.hasDisconnected()) {
-                realPlayer.connection.send(new ClientboundEntityEventPacket(realPlayer, (byte)2));
-                realPlayer.connection.send(new ClientboundDamageEventPacket(realPlayer, source));
+                    realPlayer.connection.send(new ClientboundEntityEventPacket(realPlayer, (byte)2));
+                    realPlayer.connection.send(new ClientboundDamageEventPacket(realPlayer, source));
                 }
             }
         }
@@ -814,7 +660,9 @@ public class EchoPlayerManager {
             ControllerState state = session.controller;
             if (state != null) {
                 ServerPlayer realPlayer = state.realPlayer;
-                if (realPlayer.isDeadOrDying() || realPlayer.hasDisconnected()) return;
+                if (realPlayer.isDeadOrDying() || realPlayer.hasDisconnected()) {
+                    return;
+                }
                 realPlayer.setDeltaMovement(echoPlayer.getDeltaMovement());
                 realPlayer.connection.send(new ClientboundSetEntityMotionPacket(realPlayer));
             }
@@ -822,7 +670,6 @@ public class EchoPlayerManager {
     }
 
     public static void revertPossession(ServerPlayer realPlayer) {
-        Entity realVehicle;
         ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
         if (state == null) {
             return;
@@ -831,39 +678,40 @@ public class EchoPlayerManager {
         if (controlledVehicle != null) {
             realPlayer.stopRiding();
         }
-        if ((realVehicle = state.shellPlayer.getVehicle()) != null) {
+        Entity realVehicle = state.shellPlayer.getVehicle();
+        if (realVehicle != null) {
             state.shellPlayer.stopRiding();
         }
-        EchoPlayerManager.commitControllerContainer(state);
-        EchoPlayerManager.syncControlledEchoToController(state);
-        EchoPlayerManager.copyRealStateToEcho(state, !state.echoPlayer.isDeadOrDying());
+        commitControllerContainer(state);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, !state.echoPlayer.isDeadOrDying());
         if (realPlayer.isSleeping() && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            EchoPlayerManager.transferSleepingState(realPlayer, state.echoPlayer);
+            StateSynchronizer.transferSleepingState(realPlayer, state.echoPlayer);
         }
         if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            EchoPlayerManager.copyRidingTransform(realPlayer, state.echoPlayer);
+            copyRidingTransform(realPlayer, state.echoPlayer);
             state.echoPlayer.startRiding(controlledVehicle, true);
-            EchoPlayerManager.copyRidingTransform(realPlayer, state.echoPlayer);
+            copyRidingTransform(realPlayer, state.echoPlayer);
         }
-        EchoPlayerManager.removeControllerState(state);
-        EchoPlayerManager.removeShell(state);
+        removeControllerState(state);
+        removeShell(state);
         if (!realPlayer.isDeadOrDying()) {
-            EchoPlayerManager.restoreRealPlayerFromShell(state, true);
-            EchoPlayerManager.sendUnpossessPacket(realPlayer);
-            EchoPlayerManager.reshowEchoToReal(state);
-            EchoPlayerManager.removeCrashBackup(realPlayer);
+            restoreRealPlayerFromShell(state, true);
+            sendUnpossessPacket(realPlayer);
+            reshowEchoToReal(state);
+            removeCrashBackup(realPlayer);
         } else {
-            EchoPlayerManager.restoreRealPlayerForRespawn(state);
-            EchoPlayerManager.sendUnpossessPacket(realPlayer);
-            EchoPlayerManager.removeCrashBackup(realPlayer);
+            restoreRealPlayerForRespawn(state);
+            sendUnpossessPacket(realPlayer);
+            removeCrashBackup(realPlayer);
         }
-        EchoPlayerManager.showControllerToObservers(realPlayer);
+        showControllerToObservers(realPlayer);
         if (realVehicle != null && !realPlayer.isDeadOrDying()) {
-            EchoPlayerManager.copyRidingTransform(state.shellPlayer, realPlayer);
+            copyRidingTransform(state.shellPlayer, realPlayer);
             realPlayer.startRiding(realVehicle, true);
-            EchoPlayerManager.copyRidingTransform(state.shellPlayer, realPlayer);
+            copyRidingTransform(state.shellPlayer, realPlayer);
         }
-        EchoPlayerManager.updateLogicalSleepStatus(state);
+        updateLogicalSleepStatus(state);
     }
 
     public static void revertAllPossessions(EchoServerPlayer echoPlayer) {
@@ -872,16 +720,14 @@ public class EchoPlayerManager {
             return;
         }
         if (session.controller != null) {
-            EchoPlayerManager.revertPossession(session.controller.realPlayer);
+            revertPossession(session.controller.realPlayer);
         }
     }
 
     public static void ejectControllersOnDeath(EchoServerPlayer echoPlayer) {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
-        if (session != null) {
-            if (session.controller != null) {
-                EchoPlayerManager.revertPossession(session.controller.realPlayer);
-            }
+        if (session != null && session.controller != null) {
+            revertPossession(session.controller.realPlayer);
         }
     }
 
@@ -895,37 +741,34 @@ public class EchoPlayerManager {
 
     public static void prepareEchoForDeath(EchoServerPlayer echoPlayer) {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
-        if (session == null) {
-            return;
-        }
-        if (session.controller != null) {
-            EchoPlayerManager.commitControllerContainer(session.controller);
+        if (session != null && session.controller != null) {
+            commitControllerContainer(session.controller);
         }
     }
 
     public static void finalizeOriginalBodyDeath(EchoServerPlayer shellPlayer, DamageSource source, float amount) {
-        ControllerState state = EchoPlayerManager.findControllerByShell(shellPlayer);
+        ControllerState state = findControllerByShell(shellPlayer);
         if (state == null) {
             shellPlayer.discard();
             return;
         }
         PendingEchoReshow pendingEchoReshow = new PendingEchoReshow(state.echoPlayer);
-        EchoPlayerManager.commitControllerContainer(state);
-        EchoPlayerManager.syncControlledEchoToController(state);
-        EchoPlayerManager.copyRealStateToEcho(state, false);
-        EchoPlayerManager.removeControllerState(state);
-        EchoPlayerManager.restoreRealPlayerFromShell(state, false);
-        EchoPlayerManager.teleportRealPlayerToShell(state);
-        EchoPlayerManager.removeShell(state);
-        EchoPlayerManager.showControllerToObservers(state.realPlayer);
-        EchoPlayerManager.sendUnpossessPacket(state.realPlayer);
+        commitControllerContainer(state);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, false);
+        removeControllerState(state);
+        restoreRealPlayerFromShell(state, false);
+        teleportRealPlayerToShell(state);
+        removeShell(state);
+        showControllerToObservers(state.realPlayer);
+        sendUnpossessPacket(state.realPlayer);
         PENDING_ECHO_RESHOWS.put(state.realPlayer.getUUID(), pendingEchoReshow);
         float recordedAmount = amount > 0.0f ? amount : state.realPlayer.getMaxHealth();
         state.realPlayer.getCombatTracker().recordDamage(source, recordedAmount);
         state.realPlayer.setHealth(0.0f);
         state.realPlayer.die(source);
-        EchoPlayerManager.restoreEchoStateAndWorld(state.echoPlayer, pendingEchoReshow);
-        EchoPlayerManager.removeCrashBackup(state.realPlayer);
+        restoreEchoStateAndWorld(state.echoPlayer, pendingEchoReshow);
+        removeCrashBackup(state.realPlayer);
     }
 
     public static void removeEchoPlayer(EchoServerPlayer echoPlayer) {
@@ -937,42 +780,37 @@ public class EchoPlayerManager {
         if (session != null) {
             ControllerState state = session.controller;
             if (state != null) {
-                EchoPlayerManager.commitControllerContainer(state);
-                EchoPlayerManager.removeControllerState(state);
-                EchoPlayerManager.removeShell(state);
-                EchoPlayerManager.restoreRealPlayerFromShell(state, true);
-                EchoPlayerManager.showControllerToObservers(state.realPlayer);
-                EchoPlayerManager.sendUnpossessPacket(state.realPlayer);
-                EchoPlayerManager.removeCrashBackup(state.realPlayer);
+                commitControllerContainer(state);
+                removeControllerState(state);
+                removeShell(state);
+                restoreRealPlayerFromShell(state, true);
+                showControllerToObservers(state.realPlayer);
+                sendUnpossessPacket(state.realPlayer);
+                removeCrashBackup(state.realPlayer);
             }
         }
-        EchoPlayerManager.removeEchoPlayerEntityAndData(echoPlayer);
+        removeEchoPlayerEntityAndData(echoPlayer);
     }
 
     public static void completePendingEchoReshow(ServerPlayer player) {
-        EchoServerPlayer echoPlayer;
-        PendingEchoReshow pending;
-        block5: {
-            block4: {
-                pending = PENDING_ECHO_RESHOWS.remove(player.getUUID());
-                if (pending == null) {
-                    return;
-                }
-                ServerPlayer registeredPlayer = player.server.getPlayerList().getPlayer(pending.echoPlayerId);
-                if (!(registeredPlayer instanceof EchoServerPlayer)) break block4;
-                echoPlayer = (EchoServerPlayer)registeredPlayer;
-                if (echoPlayer.linkedRealPlayer == null) break block5;
-            }
+        PendingEchoReshow pending = PENDING_ECHO_RESHOWS.remove(player.getUUID());
+        if (pending == null) {
             return;
         }
-        EchoPlayerManager.restoreEchoStateAndWorld(echoPlayer, pending);
-        EchoPlayerManager.sendEchoEntityToViewer(echoPlayer, player);
+        ServerPlayer registeredPlayer = player.server.getPlayerList().getPlayer(pending.echoPlayerId);
+        if (!(registeredPlayer instanceof EchoServerPlayer echoPlayer) || echoPlayer.linkedRealPlayer != null) {
+            return;
+        }
+        restoreEchoStateAndWorld(echoPlayer, pending);
+        sendEchoEntityToViewer(echoPlayer, player);
     }
 
     private static void restorePendingEchoState(EchoServerPlayer echoPlayer) {
         for (PendingEchoReshow pending : PENDING_ECHO_RESHOWS.values()) {
-            if (!pending.echoPlayerId.equals(echoPlayer.getUUID())) continue;
-            EchoPlayerManager.restoreEchoStateAndWorld(echoPlayer, pending);
+            if (!pending.echoPlayerId.equals(echoPlayer.getUUID())) {
+                continue;
+            }
+            restoreEchoStateAndWorld(echoPlayer, pending);
             return;
         }
     }
@@ -980,7 +818,7 @@ public class EchoPlayerManager {
     private static void restoreEchoStateAndWorld(EchoServerPlayer echoPlayer, PendingEchoReshow pending) {
         boolean wasRemoved = echoPlayer.isRemoved();
         echoPlayer.restoreAfterControllerBodyDeath(pending.health);
-        EchoPlayerManager.setGameModeIfNeeded(echoPlayer, pending.gameMode);
+        StateSynchronizer.setGameModeIfNeeded(echoPlayer, pending.gameMode);
         if (wasRemoved) {
             echoPlayer.serverLevel().addRespawnedPlayer(echoPlayer);
         }
@@ -988,19 +826,19 @@ public class EchoPlayerManager {
 
     public static void tick() {
         for (PossessionSession session : List.copyOf(SESSIONS.values())) {
-            EchoPlayerManager.tickSession(session);
+            tickSession(session);
         }
     }
 
     private static void tickSession(PossessionSession session) {
         EchoServerPlayer echoPlayer = session.echoPlayer;
         if (echoPlayer.isDeadOrDying()) {
-            EchoPlayerManager.ejectControllersOnDeath(echoPlayer);
+            ejectControllersOnDeath(echoPlayer);
             return;
         }
         if (echoPlayer.isRemoved()) {
             SESSIONS.remove(echoPlayer.getUUID(), session);
-            EchoPlayerManager.endSessionControllers(session, false);
+            endSessionControllers(session, false);
             return;
         }
         ControllerState state = session.controller;
@@ -1010,52 +848,52 @@ public class EchoPlayerManager {
         }
         ServerPlayer realPlayer = state.realPlayer;
         if (realPlayer.hasDisconnected()) {
-            EchoPlayerManager.revertPossession(realPlayer);
+            revertPossession(realPlayer);
             return;
         }
         if (state.shellPlayer.isDeadOrDying()) {
-            EchoPlayerManager.finalizeOriginalBodyDeath(state.shellPlayer, state.shellPlayer.damageSources().genericKill(), state.shellPlayer.getMaxHealth());
+            finalizeOriginalBodyDeath(state.shellPlayer, state.shellPlayer.damageSources().genericKill(), state.shellPlayer.getMaxHealth());
             return;
         }
         if (state.shellPlayer.isRemoved() || realPlayer.isDeadOrDying()) {
-            EchoPlayerManager.revertPossession(realPlayer);
+            revertPossession(realPlayer);
             return;
         }
-        EchoPlayerManager.syncControlledEchoToController(state);
-        EchoPlayerManager.copyRealStateToEcho(state, true);
-        EchoPlayerManager.hideControllerBody(realPlayer);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, true);
+        StateSynchronizer.hideControllerBody(realPlayer);
     }
 
     private static void endSessionControllers(PossessionSession session, boolean reshowEcho) {
         ControllerState state = session.controller;
         if (state != null) {
-            Entity realVehicle;
             Entity echoVehicle = state.realPlayer.getVehicle();
             if (echoVehicle != null) {
                 state.realPlayer.stopRiding();
             }
-            if ((realVehicle = state.shellPlayer.getVehicle()) != null) {
+            Entity realVehicle = state.shellPlayer.getVehicle();
+            if (realVehicle != null) {
                 state.shellPlayer.stopRiding();
             }
-            EchoPlayerManager.commitControllerContainer(state);
-            EchoPlayerManager.removeControllerState(state);
-            EchoPlayerManager.removeShell(state);
+            commitControllerContainer(state);
+            removeControllerState(state);
+            removeShell(state);
             if (!state.realPlayer.isDeadOrDying()) {
-                EchoPlayerManager.restoreRealPlayerFromShell(state, true);
-                EchoPlayerManager.copyEchoSharedStateToRealController(state);
-                EchoPlayerManager.showControllerToObservers(state.realPlayer);
-                EchoPlayerManager.sendUnpossessPacket(state.realPlayer);
+                restoreRealPlayerFromShell(state, true);
+                copyEchoSharedStateToRealController(state);
+                showControllerToObservers(state.realPlayer);
+                sendUnpossessPacket(state.realPlayer);
                 if (reshowEcho) {
-                    EchoPlayerManager.reshowEchoToReal(state);
+                    reshowEchoToReal(state);
                 }
                 if (realVehicle != null) {
                     state.realPlayer.startRiding(realVehicle, true);
                 }
             } else {
-                EchoPlayerManager.restoreRealPlayerForRespawn(state);
-                EchoPlayerManager.sendUnpossessPacket(state.realPlayer);
+                restoreRealPlayerForRespawn(state);
+                sendUnpossessPacket(state.realPlayer);
             }
-            EchoPlayerManager.removeCrashBackup(state.realPlayer);
+            removeCrashBackup(state.realPlayer);
         }
     }
 
@@ -1091,8 +929,8 @@ public class EchoPlayerManager {
         shell.setXRot(realPlayer.getXRot());
         shell.yHeadRot = realPlayer.yHeadRot;
         shell.yBodyRot = realPlayer.yBodyRot;
-        EchoPlayerManager.copyRealStateToShell(realPlayer, shell);
-        EchoPlayerManager.transferSleepingState(realPlayer, shell);
+        StateSynchronizer.copyRealStateToShell(realPlayer, shell);
+        StateSynchronizer.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
         ClientboundPlayerInfoUpdatePacket addPacket = new ClientboundPlayerInfoUpdatePacket(actions, List.of(shell));
         for (ServerPlayer player : realPlayer.server.getPlayerList().getPlayers()) {
@@ -1102,48 +940,27 @@ public class EchoPlayerManager {
         return shell;
     }
 
-    private static void copyRealStateToShell(ServerPlayer realPlayer, EchoServerPlayer shellPlayer) {
-        EchoPlayerManager.copyInventoryContents(realPlayer, shellPlayer);
-        EchoPlayerManager.setGameModeIfNeeded(shellPlayer, realPlayer.gameMode.getGameModeForPlayer());
-        EchoPlayerManager.synchronizeEffects(realPlayer, shellPlayer);
-        EchoPlayerManager.synchronizeAttributes(realPlayer, shellPlayer, true);
-        EchoPlayerManager.copySprintingState(realPlayer, shellPlayer);
-        shellPlayer.setHealth(realPlayer.getHealth());
-        shellPlayer.setAbsorptionAmount(realPlayer.getAbsorptionAmount());
-        shellPlayer.getFoodData().setFoodLevel(realPlayer.getFoodData().getFoodLevel());
-        shellPlayer.getFoodData().setSaturation(realPlayer.getFoodData().getSaturationLevel());
-        shellPlayer.experienceLevel = realPlayer.experienceLevel;
-        shellPlayer.experienceProgress = realPlayer.experienceProgress;
-        shellPlayer.totalExperience = realPlayer.totalExperience;
-        EchoPlayerManager.copyAbilities(realPlayer, shellPlayer);
-    }
-
     private static void copyRealStateToEcho(ControllerState state, boolean copyHealth) {
-        boolean echoAbsChanged;
-        boolean echoExhChanged;
-        boolean echoSatChanged;
-        boolean echoFoodChanged;
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         GameType realGameMode = realPlayer.gameMode.getGameModeForPlayer();
         GameType echoGameMode = echoPlayer.gameMode.getGameModeForPlayer();
         if (realGameMode != state.lastSyncGameMode) {
-            EchoPlayerManager.setGameModeIfNeeded(echoPlayer, realGameMode);
+            StateSynchronizer.setGameModeIfNeeded(echoPlayer, realGameMode);
             state.lastSyncGameMode = realGameMode;
         } else if (echoGameMode != state.lastSyncGameMode) {
-            EchoPlayerManager.setGameModeIfNeeded(realPlayer, echoGameMode);
+            StateSynchronizer.setGameModeIfNeeded(realPlayer, echoGameMode);
             state.lastSyncGameMode = echoGameMode;
         }
         boolean inventoryChanged = false;
         Inventory realInv = realPlayer.getInventory();
         Inventory echoInv = echoPlayer.getInventory();
-        for (int i = 0; i < state.lastInventoryState.length; ++i) {
-            boolean echoChanged;
+        for (int i = 0; i < state.lastInventoryState.length; i++) {
             ItemStack realStack = realInv.getItem(i);
             ItemStack echoStack = echoInv.getItem(i);
             ItemStack lastStack = state.lastInventoryState[i];
             boolean realChanged = !ItemStack.matches(realStack, lastStack);
-            boolean bl = echoChanged = !ItemStack.matches(echoStack, lastStack);
+            boolean echoChanged = !ItemStack.matches(echoStack, lastStack);
             if (echoChanged) {
                 if (ItemStack.isSameItemSameTags(realStack, echoStack)) {
                     realStack.setCount(echoStack.getCount());
@@ -1154,7 +971,9 @@ public class EchoPlayerManager {
                 inventoryChanged = true;
                 continue;
             }
-            if (!realChanged) continue;
+            if (!realChanged) {
+                continue;
+            }
             echoInv.setItem(i, realStack.copy());
             state.lastInventoryState[i] = realStack.copy();
         }
@@ -1166,11 +985,25 @@ public class EchoPlayerManager {
             realPlayer.containerMenu.broadcastChanges();
         }
         Services.PLATFORM.syncModdedInventories(realPlayer, echoPlayer);
-        EchoPlayerManager.synchronizeEffects(realPlayer, echoPlayer);
-        EchoPlayerManager.synchronizeAttributes(realPlayer, echoPlayer, false);
-        EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
+        StateSynchronizer.synchronizeEffects(realPlayer, echoPlayer);
+        StateSynchronizer.synchronizeAttributes(realPlayer, echoPlayer, false);
+        StateSynchronizer.copySprintingState(realPlayer, echoPlayer);
+        syncFoodState(state, realPlayer, echoPlayer);
+        StateSynchronizer.syncExperienceState(realPlayer, echoPlayer);
+        if (copyHealth) {
+            syncHealthState(state, realPlayer, echoPlayer);
+        }
+        syncAbsorptionState(state, realPlayer, echoPlayer);
+        StateSynchronizer.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
+        StateSynchronizer.synchronizeUsingItem(realPlayer, echoPlayer);
+        if (inventoryChanged) {
+            StateSynchronizer.updateEchoEquipment(echoPlayer);
+        }
+    }
+
+    private static void syncFoodState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
         boolean realFoodChanged = realPlayer.getFoodData().getFoodLevel() != state.lastFoodLevel;
-        boolean bl = echoFoodChanged = echoPlayer.getFoodData().getFoodLevel() != state.lastFoodLevel;
+        boolean echoFoodChanged = echoPlayer.getFoodData().getFoodLevel() != state.lastFoodLevel;
         if (realFoodChanged) {
             echoPlayer.getFoodData().setFoodLevel(realPlayer.getFoodData().getFoodLevel());
             state.lastFoodLevel = realPlayer.getFoodData().getFoodLevel();
@@ -1179,16 +1012,16 @@ public class EchoPlayerManager {
             state.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
         }
         boolean realSatChanged = Float.compare(realPlayer.getFoodData().getSaturationLevel(), state.lastSaturation) != 0;
-        boolean bl2 = echoSatChanged = Float.compare(echoPlayer.getFoodData().getSaturationLevel(), state.lastSaturation) != 0;
+        boolean echoSatChanged = Float.compare(echoPlayer.getFoodData().getSaturationLevel(), state.lastSaturation) != 0;
         if (realSatChanged) {
             echoPlayer.getFoodData().setSaturation(realPlayer.getFoodData().getSaturationLevel());
             state.lastSaturation = realPlayer.getFoodData().getSaturationLevel();
         } else if (echoSatChanged) {
             realPlayer.getFoodData().setSaturation(echoPlayer.getFoodData().getSaturationLevel());
-            state.lastSaturation = realPlayer.getFoodData().getSaturationLevel();
+            state.lastSaturation = echoPlayer.getFoodData().getSaturationLevel();
         }
         boolean realExhChanged = Float.compare(realPlayer.getFoodData().getExhaustionLevel(), state.lastExhaustion) != 0;
-        boolean bl3 = echoExhChanged = Float.compare(echoPlayer.getFoodData().getExhaustionLevel(), state.lastExhaustion) != 0;
+        boolean echoExhChanged = Float.compare(echoPlayer.getFoodData().getExhaustionLevel(), state.lastExhaustion) != 0;
         if (realExhChanged) {
             echoPlayer.getFoodData().setExhaustion(realPlayer.getFoodData().getExhaustionLevel());
             state.lastExhaustion = realPlayer.getFoodData().getExhaustionLevel();
@@ -1196,29 +1029,23 @@ public class EchoPlayerManager {
             realPlayer.getFoodData().setExhaustion(echoPlayer.getFoodData().getExhaustionLevel());
             state.lastExhaustion = echoPlayer.getFoodData().getExhaustionLevel();
         }
-        if (echoPlayer.experienceLevel != realPlayer.experienceLevel) {
-            echoPlayer.experienceLevel = realPlayer.experienceLevel;
+    }
+
+    private static void syncHealthState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
+        boolean realHealthChanged = Float.compare(realPlayer.getHealth(), state.lastHealth) != 0;
+        boolean echoHealthChanged = Float.compare(echoPlayer.getHealth(), state.lastHealth) != 0;
+        if (echoHealthChanged) {
+            realPlayer.setHealth(echoPlayer.getHealth());
+            state.lastHealth = echoPlayer.getHealth();
+        } else if (realHealthChanged) {
+            echoPlayer.setHealth(realPlayer.getHealth());
+            state.lastHealth = realPlayer.getHealth();
         }
-        if (Float.compare(echoPlayer.experienceProgress, realPlayer.experienceProgress) != 0) {
-            echoPlayer.experienceProgress = realPlayer.experienceProgress;
-        }
-        if (echoPlayer.totalExperience != realPlayer.totalExperience) {
-            echoPlayer.totalExperience = realPlayer.totalExperience;
-        }
-        if (copyHealth) {
-            boolean echoHealthChanged;
-            boolean realHealthChanged = Float.compare(realPlayer.getHealth(), state.lastHealth) != 0;
-            boolean bl4 = echoHealthChanged = Float.compare(echoPlayer.getHealth(), state.lastHealth) != 0;
-            if (echoHealthChanged) {
-                realPlayer.setHealth(echoPlayer.getHealth());
-                state.lastHealth = echoPlayer.getHealth();
-            } else if (realHealthChanged) {
-                echoPlayer.setHealth(realPlayer.getHealth());
-                state.lastHealth = realPlayer.getHealth();
-            }
-        }
+    }
+
+    private static void syncAbsorptionState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
         boolean realAbsChanged = Float.compare(realPlayer.getAbsorptionAmount(), state.lastAbsorption) != 0;
-        boolean bl5 = echoAbsChanged = Float.compare(echoPlayer.getAbsorptionAmount(), state.lastAbsorption) != 0;
+        boolean echoAbsChanged = Float.compare(echoPlayer.getAbsorptionAmount(), state.lastAbsorption) != 0;
         if (echoAbsChanged) {
             realPlayer.setAbsorptionAmount(echoPlayer.getAbsorptionAmount());
             state.lastAbsorption = echoPlayer.getAbsorptionAmount();
@@ -1226,40 +1053,36 @@ public class EchoPlayerManager {
             echoPlayer.setAbsorptionAmount(realPlayer.getAbsorptionAmount());
             state.lastAbsorption = realPlayer.getAbsorptionAmount();
         }
-        EchoPlayerManager.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
-        EchoPlayerManager.synchronizeUsingItem(realPlayer, echoPlayer);
-        if (inventoryChanged) {
-            EchoPlayerManager.updateEchoEquipment(echoPlayer);
-        }
     }
 
     private static void copyEchoStateToRealController(ControllerState state) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
-        EchoPlayerManager.copyEchoSharedStateToRealController(state, true);
-        if (EchoPlayerManager.needsTeleportToEcho(state)) {
-            EchoPlayerManager.teleportRealPlayerToEcho(state, false);
+        copyEchoSharedStateToRealController(state, true);
+        if (needsTeleportToEcho(state)) {
+            teleportRealPlayerToEcho(state, false);
         }
         realPlayer.setDeltaMovement(echoPlayer.getDeltaMovement());
     }
 
     private static void copyEchoSharedStateToRealController(ControllerState state) {
-        EchoPlayerManager.copyEchoSharedStateToRealController(state, false);
+        copyEchoSharedStateToRealController(state, false);
     }
 
     private static void copyEchoSharedStateToRealController(ControllerState state, boolean synchronizeAllAttributes) {
-        boolean experienceChanged;
-        boolean healthChanged;
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         int previousSelected = realPlayer.getInventory().selected;
-        boolean inventoryChanged = EchoPlayerManager.synchronizeInventoryContents(echoPlayer, realPlayer);
+        boolean inventoryChanged = StateSynchronizer.synchronizeInventoryContents(echoPlayer, realPlayer);
         Services.PLATFORM.syncModdedInventories(echoPlayer, realPlayer);
-        EchoPlayerManager.setGameModeIfNeeded(realPlayer, echoPlayer.gameMode.getGameModeForPlayer());
-        EchoPlayerManager.synchronizeEffects(echoPlayer, realPlayer);
-        EchoPlayerManager.synchronizeAttributes(echoPlayer, realPlayer, synchronizeAllAttributes);
-        EchoPlayerManager.copySprintingState(echoPlayer, realPlayer);
-        boolean bl = healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0 || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0 || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel() || Float.compare(realPlayer.getFoodData().getSaturationLevel(), echoPlayer.getFoodData().getSaturationLevel()) != 0;
+        StateSynchronizer.setGameModeIfNeeded(realPlayer, echoPlayer.gameMode.getGameModeForPlayer());
+        StateSynchronizer.synchronizeEffects(echoPlayer, realPlayer);
+        StateSynchronizer.synchronizeAttributes(echoPlayer, realPlayer, synchronizeAllAttributes);
+        StateSynchronizer.copySprintingState(echoPlayer, realPlayer);
+        boolean healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0
+            || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0
+            || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel()
+            || Float.compare(realPlayer.getFoodData().getSaturationLevel(), echoPlayer.getFoodData().getSaturationLevel()) != 0;
         if (Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0) {
             realPlayer.setHealth(echoPlayer.getHealth());
         }
@@ -1273,14 +1096,16 @@ public class EchoPlayerManager {
         if (Float.compare(realPlayer.getFoodData().getSaturationLevel(), echoPlayer.getFoodData().getSaturationLevel()) != 0) {
             realPlayer.getFoodData().setSaturation(echoPlayer.getFoodData().getSaturationLevel());
         }
-        boolean bl2 = experienceChanged = realPlayer.experienceLevel != echoPlayer.experienceLevel || Float.compare(realPlayer.experienceProgress, echoPlayer.experienceProgress) != 0 || realPlayer.totalExperience != echoPlayer.totalExperience;
+        boolean experienceChanged = realPlayer.experienceLevel != echoPlayer.experienceLevel
+            || Float.compare(realPlayer.experienceProgress, echoPlayer.experienceProgress) != 0
+            || realPlayer.totalExperience != echoPlayer.totalExperience;
         if (experienceChanged) {
             realPlayer.experienceLevel = echoPlayer.experienceLevel;
             realPlayer.experienceProgress = echoPlayer.experienceProgress;
             realPlayer.totalExperience = echoPlayer.totalExperience;
         }
-        boolean abilitiesChanged = EchoPlayerManager.copyAbilitiesIfDifferent(echoPlayer, realPlayer);
-        EchoPlayerManager.synchronizeUsingItem(echoPlayer, realPlayer);
+        boolean abilitiesChanged = StateSynchronizer.copyAbilitiesIfDifferent(echoPlayer, realPlayer);
+        StateSynchronizer.synchronizeUsingItem(echoPlayer, realPlayer);
         if (healthChanged) {
             realPlayer.connection.send(new ClientboundSetHealthPacket(realPlayer.getHealth(), realPlayer.getFoodData().getFoodLevel(), realPlayer.getFoodData().getSaturationLevel()));
         }
@@ -1296,17 +1121,7 @@ public class EchoPlayerManager {
         if (inventoryChanged) {
             realPlayer.containerMenu.broadcastChanges();
         }
-        EchoPlayerManager.hideControllerBody(realPlayer);
-    }
-
-    private static void syncConnectionPosition(ServerPlayer realPlayer, double x, double y, double z) {
-        ServerGamePacketListenerImplAccessor accessor = (ServerGamePacketListenerImplAccessor)((Object)realPlayer.connection);
-        accessor.echoplayer$setFirstGoodX(x);
-        accessor.echoplayer$setFirstGoodY(y);
-        accessor.echoplayer$setFirstGoodZ(z);
-        accessor.echoplayer$setLastGoodX(x);
-        accessor.echoplayer$setLastGoodY(y);
-        accessor.echoplayer$setLastGoodZ(z);
+        StateSynchronizer.hideControllerBody(realPlayer);
     }
 
     private static void syncControlledEchoToController(ControllerState state) {
@@ -1324,7 +1139,7 @@ public class EchoPlayerManager {
         echoPlayer.yBodyRot = realPlayer.yBodyRot;
         echoPlayer.setPose(realPlayer.getPose());
         echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
-        EchoPlayerManager.copySprintingState(realPlayer, echoPlayer);
+        StateSynchronizer.copySprintingState(realPlayer, echoPlayer);
         echoPlayer.setOnGround(realPlayer.onGround());
         echoPlayer.fallDistance = realPlayer.fallDistance;
         echoPlayer.setDeltaMovement(realPlayer.getDeltaMovement());
@@ -1336,7 +1151,7 @@ public class EchoPlayerManager {
         target.yBodyRot = source.yBodyRot;
         target.setPose(source.getPose());
         target.setShiftKeyDown(source.isShiftKeyDown());
-        EchoPlayerManager.copySprintingState(source, target);
+        StateSynchronizer.copySprintingState(source, target);
         target.setOnGround(source.onGround());
         target.fallDistance = source.fallDistance;
         target.setDeltaMovement(source.getDeltaMovement());
@@ -1348,8 +1163,7 @@ public class EchoPlayerManager {
             player.saveWithoutId(backupTag);
             Path path = player.server.getWorldPath(LevelResource.PLAYER_DATA_DIR).resolve(player.getUUID() + "_afp_backup.dat");
             NbtIo.writeCompressed(backupTag, path.toFile());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Constants.LOG.error("Failed to create crash backup for " + player.getName().getString(), (Throwable)e);
         }
     }
@@ -1358,54 +1172,54 @@ public class EchoPlayerManager {
         try {
             Path path = player.server.getWorldPath(LevelResource.PLAYER_DATA_DIR).resolve(player.getUUID() + "_afp_backup.dat");
             Files.deleteIfExists(path);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Constants.LOG.error("Failed to delete crash backup for " + player.getName().getString(), (Throwable)e);
         }
     }
 
     public static void restoreCrashBackup(ServerPlayer realPlayer) {
         try {
-            CompoundTag backup;
             Path path = realPlayer.server.getWorldPath(LevelResource.PLAYER_DATA_DIR).resolve(realPlayer.getUUID() + "_afp_backup.dat");
-            if (Files.exists(path, new LinkOption[0]) && (backup = NbtIo.readCompressed(path.toFile())) != null) {
-                if (backup.contains("Inventory")) {
-                    realPlayer.getInventory().load(backup.getList("Inventory", 10));
+            if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+                CompoundTag backup = NbtIo.readCompressed(path.toFile());
+                if (backup != null) {
+                    if (backup.contains("Inventory")) {
+                        realPlayer.getInventory().load(backup.getList("Inventory", 10));
+                    }
+                    if (backup.contains("SelectedItemSlot")) {
+                        realPlayer.getInventory().selected = backup.getInt("SelectedItemSlot");
+                    }
+                    if (backup.contains("Health", 99)) {
+                        realPlayer.setHealth(backup.getFloat("Health"));
+                    }
+                    if (backup.contains("AbsorptionAmount", 99)) {
+                        realPlayer.setAbsorptionAmount(backup.getFloat("AbsorptionAmount"));
+                    }
+                    if (backup.contains("foodLevel", 99)) {
+                        realPlayer.getFoodData().setFoodLevel(backup.getInt("foodLevel"));
+                    }
+                    if (backup.contains("foodSaturationLevel", 99)) {
+                        realPlayer.getFoodData().setSaturation(backup.getFloat("foodSaturationLevel"));
+                    }
+                    if (backup.contains("XpLevel", 99)) {
+                        realPlayer.experienceLevel = backup.getInt("XpLevel");
+                    }
+                    if (backup.contains("XpP", 99)) {
+                        realPlayer.experienceProgress = backup.getFloat("XpP");
+                    }
+                    if (backup.contains("XpTotal", 99)) {
+                        realPlayer.totalExperience = backup.getInt("XpTotal");
+                    }
+                    if (backup.contains("abilities", 10)) {
+                        realPlayer.getAbilities().loadSaveData(backup.getCompound("abilities"));
+                        realPlayer.onUpdateAbilities();
+                    }
+                    Files.deleteIfExists(path);
+                    StateSynchronizer.syncRealPlayerPackets(realPlayer);
+                    realPlayer.containerMenu.broadcastChanges();
                 }
-                if (backup.contains("SelectedItemSlot")) {
-                    realPlayer.getInventory().selected = backup.getInt("SelectedItemSlot");
-                }
-                if (backup.contains("Health", 99)) {
-                    realPlayer.setHealth(backup.getFloat("Health"));
-                }
-                if (backup.contains("AbsorptionAmount", 99)) {
-                    realPlayer.setAbsorptionAmount(backup.getFloat("AbsorptionAmount"));
-                }
-                if (backup.contains("foodLevel", 99)) {
-                    realPlayer.getFoodData().setFoodLevel(backup.getInt("foodLevel"));
-                }
-                if (backup.contains("foodSaturationLevel", 99)) {
-                    realPlayer.getFoodData().setSaturation(backup.getFloat("foodSaturationLevel"));
-                }
-                if (backup.contains("XpLevel", 99)) {
-                    realPlayer.experienceLevel = backup.getInt("XpLevel");
-                }
-                if (backup.contains("XpP", 99)) {
-                    realPlayer.experienceProgress = backup.getFloat("XpP");
-                }
-                if (backup.contains("XpTotal", 99)) {
-                    realPlayer.totalExperience = backup.getInt("XpTotal");
-                }
-                if (backup.contains("abilities", 10)) {
-                    realPlayer.getAbilities().loadSaveData(backup.getCompound("abilities"));
-                    realPlayer.onUpdateAbilities();
-                }
-                Files.deleteIfExists(path);
-                EchoPlayerManager.syncRealPlayerPackets(realPlayer);
-                realPlayer.containerMenu.broadcastChanges();
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Constants.LOG.error("Failed to restore crash backup for " + realPlayer.getName().getString(), (Throwable)e);
         }
     }
@@ -1413,10 +1227,10 @@ public class EchoPlayerManager {
     private static void restoreRealPlayerFromShell(ControllerState state, boolean teleport) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
-        EchoPlayerManager.copyInventoryContents(shellPlayer, realPlayer);
-        EchoPlayerManager.setGameModeIfNeeded(realPlayer, shellPlayer.gameMode.getGameModeForPlayer());
-        EchoPlayerManager.synchronizeEffects(shellPlayer, realPlayer);
-        EchoPlayerManager.synchronizeAttributes(shellPlayer, realPlayer, true);
+        StateSynchronizer.copyInventoryContents(shellPlayer, realPlayer);
+        StateSynchronizer.setGameModeIfNeeded(realPlayer, shellPlayer.gameMode.getGameModeForPlayer());
+        StateSynchronizer.synchronizeEffects(shellPlayer, realPlayer);
+        StateSynchronizer.synchronizeAttributes(shellPlayer, realPlayer, true);
         realPlayer.setHealth(Math.max(0.0f, shellPlayer.getHealth()));
         realPlayer.setAbsorptionAmount(shellPlayer.getAbsorptionAmount());
         realPlayer.getFoodData().setFoodLevel(shellPlayer.getFoodData().getFoodLevel());
@@ -1424,38 +1238,18 @@ public class EchoPlayerManager {
         realPlayer.experienceLevel = shellPlayer.experienceLevel;
         realPlayer.experienceProgress = shellPlayer.experienceProgress;
         realPlayer.totalExperience = shellPlayer.totalExperience;
-        EchoPlayerManager.copyAbilities(shellPlayer, realPlayer);
+        StateSynchronizer.copyAbilities(shellPlayer, realPlayer);
         realPlayer.setInvisible(shellPlayer.isInvisible());
         realPlayer.setSilent(shellPlayer.isSilent());
-        EchoPlayerManager.syncRealPlayerPackets(realPlayer);
+        StateSynchronizer.syncRealPlayerPackets(realPlayer);
         realPlayer.containerMenu.broadcastChanges();
         if (teleport) {
-            EchoPlayerManager.teleportRealPlayerToShell(state);
-            EchoPlayerManager.copyRidingTransform(shellPlayer, realPlayer);
+            teleportRealPlayerToShell(state);
+            copyRidingTransform(shellPlayer, realPlayer);
         }
         if (shellPlayer.isSleeping()) {
-            EchoPlayerManager.transferSleepingState(shellPlayer, realPlayer);
+            StateSynchronizer.transferSleepingState(shellPlayer, realPlayer);
             realPlayer.serverLevel().updateSleepingPlayerList();
-        }
-    }
-
-    private static void transferSleepingState(ServerPlayer from, ServerPlayer to) {
-        Optional<BlockPos> sleepingPos = from.getSleepingPos();
-        if (sleepingPos.isEmpty()) {
-            return;
-        }
-        BlockPos bedPos = sleepingPos.get();
-        int sleepTimer = ((PlayerAccessor)((Object)from)).echoplayer$getSleepCounter();
-        from.clearSleepingPos();
-        from.setPose(Pose.STANDING);
-        to.absMoveTo(from.getX(), from.getY(), from.getZ(), from.getYRot(), from.getXRot());
-        to.setPose(Pose.SLEEPING);
-        to.setSleepingPos(bedPos);
-        ((PlayerAccessor)((Object)to)).echoplayer$setSleepCounter(sleepTimer);
-        to.setDeltaMovement(from.getDeltaMovement());
-        var bedState = to.level().getBlockState(bedPos);
-        if (bedState.isBed(to.level(), bedPos, to)) {
-            bedState.setBedOccupied(to.level(), bedPos, to, true);
         }
     }
 
@@ -1468,15 +1262,6 @@ public class EchoPlayerManager {
         }
     }
 
-    private static void applyGhostBlockFix(ServerPlayer realPlayer, ServerLevel level, BlockPos posUnder) {
-        realPlayer.connection.send(new ClientboundBlockUpdatePacket(posUnder, Blocks.BARRIER.defaultBlockState()));
-        realPlayer.server.tell(new TickTask(realPlayer.server.getTickCount() + 40, () -> {
-            if (!realPlayer.hasDisconnected() && realPlayer.level() == level) {
-                realPlayer.connection.send(new ClientboundBlockUpdatePacket(level, posUnder));
-            }
-        }));
-    }
-
     private static void teleportRealPlayerToShell(ControllerState state) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
@@ -1484,18 +1269,17 @@ public class EchoPlayerManager {
         boolean requiresTerrainDownload = realPlayer.level().dimension() != shellLevel.dimension() || realPlayer.distanceToSqr(shellPlayer) > 4096.0;
         realPlayer.teleportTo(shellLevel, shellPlayer.getX(), shellPlayer.getY(), shellPlayer.getZ(), shellPlayer.getYRot(), shellPlayer.getXRot());
         if (requiresTerrainDownload) {
-            EchoPlayerManager.applyGhostBlockFix(realPlayer, shellLevel, shellPlayer.blockPosition().below());
+            StateSynchronizer.applyGhostBlockFix(realPlayer, shellLevel, shellPlayer.blockPosition().below());
         }
     }
 
     private static void teleportRealPlayerToEcho(ControllerState state, boolean forcePacket) {
-        float xRot;
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         ServerLevel echoLevel = echoPlayer.serverLevel();
         boolean requiresTerrainDownload = realPlayer.level().dimension() != echoLevel.dimension() || realPlayer.distanceToSqr(echoPlayer) > 4096.0;
         float yRot = echoPlayer.isPassenger() ? realPlayer.getYRot() : echoPlayer.getYRot();
-        float f = xRot = echoPlayer.isPassenger() ? realPlayer.getXRot() : echoPlayer.getXRot();
+        float xRot = echoPlayer.isPassenger() ? realPlayer.getXRot() : echoPlayer.getXRot();
         if (realPlayer.level().dimension() != echoLevel.dimension()) {
             realPlayer.teleportTo(echoLevel, echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), yRot, xRot);
         } else if (forcePacket) {
@@ -1503,10 +1287,10 @@ public class EchoPlayerManager {
             realPlayer.absMoveTo(echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), yRot, xRot);
         } else {
             realPlayer.absMoveTo(echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), yRot, xRot);
-            EchoPlayerManager.syncConnectionPosition(realPlayer, echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ());
+            StateSynchronizer.syncConnectionPosition(realPlayer, echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ());
         }
         if (requiresTerrainDownload) {
-            EchoPlayerManager.applyGhostBlockFix(realPlayer, echoLevel, echoPlayer.blockPosition().below());
+            StateSynchronizer.applyGhostBlockFix(realPlayer, echoLevel, echoPlayer.blockPosition().below());
         }
     }
 
@@ -1524,8 +1308,8 @@ public class EchoPlayerManager {
         realPlayer.setGameMode(state.originalGameMode);
         realPlayer.getInventory().clearContent();
         realPlayer.getInventory().load(state.originalInventory);
-        EchoPlayerManager.synchronizeEffects(state.shellPlayer, realPlayer);
-        EchoPlayerManager.synchronizeAttributes(state.shellPlayer, realPlayer, true);
+        StateSynchronizer.synchronizeEffects(state.shellPlayer, realPlayer);
+        StateSynchronizer.synchronizeAttributes(state.shellPlayer, realPlayer, true);
         realPlayer.setAbsorptionAmount(state.shellPlayer.getAbsorptionAmount());
         realPlayer.setInvisible(state.shellPlayer.isInvisible());
         realPlayer.setSilent(state.shellPlayer.isSilent());
@@ -1533,325 +1317,16 @@ public class EchoPlayerManager {
     }
 
     private static void syncEchoStateToController(PossessionSession session) {
-        EchoPlayerManager.updateEchoEquipment(session.echoPlayer);
+        StateSynchronizer.updateEchoEquipment(session.echoPlayer);
         if (session.controller != null) {
-            EchoPlayerManager.copyEchoStateToRealController(session.controller);
+            copyEchoStateToRealController(session.controller);
         }
     }
 
     private static void syncCanonicalStateToController(PossessionSession session) {
         if (session.controller != null) {
-            EchoPlayerManager.copyEchoSharedStateToRealController(session.controller);
+            copyEchoSharedStateToRealController(session.controller);
         }
-    }
-
-    private static void syncRealPlayerPackets(ServerPlayer realPlayer) {
-        realPlayer.connection.send(new ClientboundGameEventPacket(ClientboundGameEventPacket.CHANGE_GAME_MODE, realPlayer.gameMode.getGameModeForPlayer().getId()));
-        realPlayer.connection.send(new ClientboundSetHealthPacket(realPlayer.getHealth(), realPlayer.getFoodData().getFoodLevel(), realPlayer.getFoodData().getSaturationLevel()));
-        realPlayer.connection.send(new ClientboundSetExperiencePacket(realPlayer.experienceProgress, realPlayer.totalExperience, realPlayer.experienceLevel));
-        realPlayer.connection.send(new ClientboundPlayerAbilitiesPacket(realPlayer.getAbilities()));
-    }
-
-    private static void hideControllerBody(ServerPlayer realPlayer) {
-        if (!realPlayer.isSilent()) {
-            realPlayer.setSilent(true);
-        }
-    }
-
-    private static void copyInventoryContents(ServerPlayer source, ServerPlayer target) {
-        EchoPlayerManager.synchronizeInventoryContents(source, target);
-    }
-
-    private static boolean synchronizeInventoryContents(ServerPlayer source, ServerPlayer target) {
-        Inventory sourceInventory = source.getInventory();
-        Inventory targetInventory = target.getInventory();
-        boolean changed = false;
-        int size = Math.min(sourceInventory.getContainerSize(), targetInventory.getContainerSize());
-        for (int slot = 0; slot < size; ++slot) {
-            ItemStack sourceItem = sourceInventory.getItem(slot);
-            if (ItemStack.matches(sourceItem, targetInventory.getItem(slot))) continue;
-            targetInventory.setItem(slot, sourceItem.copy());
-            changed = true;
-        }
-        if (targetInventory.selected != sourceInventory.selected) {
-            targetInventory.selected = sourceInventory.selected;
-            changed = true;
-        }
-        if (changed) {
-            targetInventory.setChanged();
-        }
-        return changed;
-    }
-
-    private static void synchronizeEffects(ServerPlayer source, ServerPlayer target) {
-        Map<MobEffect, MobEffectInstance> sourceEffects = source.getActiveEffectsMap();
-        Map<MobEffect, MobEffectInstance> targetEffects = target.getActiveEffectsMap();
-        ArrayList<MobEffect> effectsToRemove = null;
-        for (MobEffect mobEffect : targetEffects.keySet()) {
-            if (sourceEffects.containsKey(mobEffect)) continue;
-            if (effectsToRemove == null) {
-                effectsToRemove = new ArrayList<MobEffect>();
-            }
-            effectsToRemove.add(mobEffect);
-        }
-        if (effectsToRemove != null) {
-            for (MobEffect mobEffect : effectsToRemove) {
-                target.removeEffect(mobEffect);
-            }
-        }
-        for (Map.Entry entry : sourceEffects.entrySet()) {
-            MobEffect effect = (MobEffect)entry.getKey();
-            MobEffectInstance sourceEffect = (MobEffectInstance)entry.getValue();
-            MobEffectInstance targetEffect = targetEffects.get(effect);
-            if (targetEffect == null) {
-                target.addEffect(new MobEffectInstance(sourceEffect));
-                continue;
-            }
-            if (!EchoPlayerManager.hasSameEffectConfiguration(sourceEffect, targetEffect)) {
-                target.removeEffect(effect);
-                target.addEffect(new MobEffectInstance(sourceEffect));
-                continue;
-            }
-            if (sourceEffect.getDuration() == targetEffect.getDuration()) continue;
-            ((MobEffectInstanceAccessor)((Object)targetEffect)).echoplayer$setDuration(sourceEffect.getDuration());
-        }
-    }
-
-    private static boolean hasSameEffectConfiguration(MobEffectInstance first, MobEffectInstance second) {
-        return first.getAmplifier() == second.getAmplifier() && first.isAmbient() == second.isAmbient() && first.isVisible() == second.isVisible() && first.showIcon() == second.showIcon();
-    }
-
-    private static void synchronizeAttributes(ServerPlayer source, ServerPlayer target, boolean synchronizeAll) {
-        LinkedHashMap<Attribute, AttributeInstance> changedAttributes = null;
-        if (synchronizeAll) {
-            for (Attribute attribute : BuiltInRegistries.ATTRIBUTE) {
-                if (!source.getAttributes().hasAttribute(attribute) || !target.getAttributes().hasAttribute(attribute)) continue;
-                AttributeState sourceState = EchoPlayerManager.captureAttributeState(source, attribute);
-                AttributeState targetState = EchoPlayerManager.captureAttributeState(target, attribute);
-                if (sourceState == null || targetState == null || EchoPlayerManager.hasSameAttributeState(sourceState, targetState)) continue;
-                AttributeInstance targetAttribute = EchoPlayerManager.replaceAttribute(target, attribute, sourceState);
-                if (changedAttributes == null) {
-                    changedAttributes = new LinkedHashMap<Attribute, AttributeInstance>();
-                }
-                changedAttributes.put(attribute, targetAttribute);
-            }
-        } else {
-            ArrayList<Attribute> dirtyAttributes = new ArrayList<Attribute>();
-            for (AttributeInstance sourceAttribute : List.copyOf(source.getAttributes().getDirtyAttributes())) {
-                if (sourceAttribute == null || sourceAttribute.getAttribute() == null || !target.getAttributes().hasAttribute(sourceAttribute.getAttribute())) continue;
-                dirtyAttributes.add(sourceAttribute.getAttribute());
-            }
-            for (Attribute attribute : dirtyAttributes) {
-                AttributeState sourceState = EchoPlayerManager.captureAttributeState(source, attribute);
-                AttributeState targetState = EchoPlayerManager.captureAttributeState(target, attribute);
-                if (sourceState == null || targetState == null || EchoPlayerManager.hasSameAttributeState(sourceState, targetState)) continue;
-                AttributeInstance targetAttribute = EchoPlayerManager.replaceAttribute(target, attribute, sourceState);
-                if (changedAttributes == null) {
-                    changedAttributes = new LinkedHashMap();
-                }
-                changedAttributes.put(attribute, targetAttribute);
-            }
-        }
-        if (changedAttributes != null && !(target instanceof EchoServerPlayer)) {
-            target.connection.send(new ClientboundUpdateAttributesPacket(target.getId(), List.copyOf(changedAttributes.values())));
-        }
-    }
-
-    private static boolean hasSameAttributeState(AttributeState firstState, AttributeState secondState) {
-        if (Double.compare(firstState.baseValue(), secondState.baseValue()) != 0) {
-            return false;
-        }
-        if (firstState.modifiers().size() != secondState.modifiers().size()) {
-            return false;
-        }
-        if (!firstState.permanentModifierIds().equals(secondState.permanentModifierIds())) {
-            return false;
-        }
-        for (AttributeModifier firstModifier : firstState.modifiers()) {
-            AttributeModifier secondModifier = secondState.modifiersById().get(firstModifier.getId());
-            if (secondModifier != null && Double.compare(firstModifier.getAmount(), secondModifier.getAmount()) == 0 && firstModifier.getOperation() == secondModifier.getOperation()) continue;
-            return false;
-        }
-        return true;
-    }
-
-    private static AttributeInstance replaceAttribute(ServerPlayer target, Attribute attribute, AttributeState sourceState) {
-        return EchoPlayerManager.rebuildAttributeInstance(target, attribute, sourceState);
-    }
-
-    private static AttributeState captureAttributeState(ServerPlayer owner, Attribute attribute) {
-        AttributeInstance attributeInstance = owner.getAttribute(attribute);
-        if (attributeInstance == null) {
-            return null;
-        }
-        double baseValue = attributeInstance.getBaseValue();
-        LinkedHashMap<UUID, AttributeModifier> modifiersById = new LinkedHashMap<UUID, AttributeModifier>();
-        HashSet<UUID> permanentModifierIds = new HashSet<UUID>();
-        try {
-            for (AttributeModifier modifier : attributeInstance.getModifiers()) {
-                if (!EchoPlayerManager.isCopiedAttributeModifier(attribute, modifier)) continue;
-                modifiersById.putIfAbsent(modifier.getId(), modifier);
-            }
-        }
-        catch (RuntimeException exception) {
-            Constants.LOG.error("Rebuilding corrupted attribute state for {} on {}", new Object[]{BuiltInRegistries.ATTRIBUTE.getKey(attribute), owner.getGameProfile().getName(), exception});
-            EchoPlayerManager.rebuildAttributeInstance(owner, attribute, new AttributeState(baseValue, List.of(), Map.of(), Set.of()));
-            return new AttributeState(baseValue, List.of(), Map.of(), Set.of());
-        }
-        try {
-            for (AttributeModifier modifier : ((AttributeInstanceAccessor)((Object)attributeInstance)).echoplayer$getPermanentModifiers()) {
-                if (!EchoPlayerManager.isCopiedAttributeModifier(attribute, modifier) || !modifiersById.containsKey(modifier.getId())) continue;
-                permanentModifierIds.add(modifier.getId());
-            }
-        }
-        catch (RuntimeException exception) {
-            Constants.LOG.error("Could not read permanent modifiers for {} on {}", new Object[]{BuiltInRegistries.ATTRIBUTE.getKey(attribute), owner.getGameProfile().getName(), exception});
-        }
-        return new AttributeState(baseValue, List.copyOf(modifiersById.values()), Map.copyOf(modifiersById), Set.copyOf(permanentModifierIds));
-    }
-
-    private static AttributeInstance rebuildAttributeInstance(ServerPlayer owner, Attribute attribute, AttributeState sourceState) {
-        AttributeMap attributeMap = owner.getAttributes();
-        AttributeMapAccessor mapAccessor = (AttributeMapAccessor)((Object)attributeMap);
-        AttributeInstance previous = attributeMap.getInstance(attribute);
-        AttributeInstance replacement = new AttributeInstance(attribute, mapAccessor::echoplayer$onAttributeModified);
-        mapAccessor.echoplayer$getAttributes().put(attribute, replacement);
-        if (previous != null) {
-            mapAccessor.echoplayer$getDirtyAttributes().remove(previous);
-        }
-        replacement.setBaseValue(sourceState.baseValue());
-        for (AttributeModifier modifier : sourceState.modifiers()) {
-            AttributeModifier clone = new AttributeModifier(modifier.getId(), modifier.getName(), modifier.getAmount(), modifier.getOperation());
-            if (sourceState.permanentModifierIds().contains(modifier.getId())) {
-                replacement.addPermanentModifier(clone);
-                continue;
-            }
-            replacement.addTransientModifier(clone);
-        }
-        ((AttributeInstanceAccessor)((Object)replacement)).echoplayer$setDirty();
-        return replacement;
-    }
-
-    private static boolean isCopiedAttributeModifier(Attribute attribute, AttributeModifier modifier) {
-        return modifier != null && modifier.getId() != null && (attribute != Attributes.MOVEMENT_SPEED || !MOVEMENT_SPEED_STATE_MODIFIER_IDS.contains(modifier.getId()));
-    }
-
-    private static boolean repairSprintingAttribute(ServerPlayer player) {
-        AttributeInstance attribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (attribute == null) {
-            return false;
-        }
-        try {
-            attribute.getModifier(SPRINTING_SPEED_MODIFIER_ID);
-            attribute.getModifiers();
-            return false;
-        }
-        catch (RuntimeException exception) {
-            Constants.LOG.error("Rebuilding corrupted movement speed attribute for {}", (Object)player.getGameProfile().getName(), (Object)exception);
-            EchoPlayerManager.rebuildAttributeInstance(player, Attributes.MOVEMENT_SPEED, new AttributeState(attribute.getBaseValue(), List.of(), Map.of(), Set.of()));
-            return true;
-        }
-    }
-
-    private static void copySprintingState(ServerPlayer source, ServerPlayer target) {
-        AttributeInstance attribute = target.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (attribute == null) {
-            return;
-        }
-        boolean rebuilt = EchoPlayerManager.repairSprintingAttribute(target);
-        boolean sprinting = source.isSprinting();
-        boolean modifierPresent = false;
-        AttributeInstance currentAttribute = target.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (currentAttribute != null) {
-            try {
-                modifierPresent = currentAttribute.getModifier(SPRINTING_SPEED_MODIFIER_ID) != null;
-            }
-            catch (RuntimeException exception) {
-                Constants.LOG.error("Rebuilding corrupted movement speed attribute for {}", (Object)target.getGameProfile().getName(), (Object)exception);
-                EchoPlayerManager.rebuildAttributeInstance(target, Attributes.MOVEMENT_SPEED, new AttributeState(currentAttribute.getBaseValue(), List.of(), Map.of(), Set.of()));
-                rebuilt = true;
-            }
-        }
-        if (rebuilt || target.isSprinting() != sprinting || modifierPresent != sprinting) {
-            target.setSprinting(sprinting);
-        }
-    }
-
-    private static void copyAbilities(ServerPlayer source, ServerPlayer target) {
-        CompoundTag abilities = new CompoundTag();
-        source.getAbilities().addSaveData(abilities);
-        target.getAbilities().loadSaveData(abilities);
-    }
-
-    private static boolean copyAbilitiesIfDifferent(ServerPlayer source, ServerPlayer target) {
-        boolean changed;
-        Abilities sourceAbilities = source.getAbilities();
-        Abilities targetAbilities = target.getAbilities();
-        boolean bl = changed = sourceAbilities.invulnerable != targetAbilities.invulnerable || sourceAbilities.flying != targetAbilities.flying || sourceAbilities.mayfly != targetAbilities.mayfly || sourceAbilities.instabuild != targetAbilities.instabuild || sourceAbilities.mayBuild != targetAbilities.mayBuild || Float.compare(sourceAbilities.getFlyingSpeed(), targetAbilities.getFlyingSpeed()) != 0 || Float.compare(sourceAbilities.getWalkingSpeed(), targetAbilities.getWalkingSpeed()) != 0;
-        if (changed) {
-            EchoPlayerManager.copyAbilities(source, target);
-        }
-        return changed;
-    }
-
-    private static void synchronizeUsingItem(ServerPlayer source, ServerPlayer target) {
-        if (source.isUsingItem()) {
-            if (!target.isUsingItem() || target.getUsedItemHand() != source.getUsedItemHand()) {
-                target.stopUsingItem();
-                target.startUsingItem(source.getUsedItemHand());
-            }
-        } else if (target.isUsingItem()) {
-            target.stopUsingItem();
-        }
-    }
-
-    private static void updateEchoEquipment(EchoServerPlayer echoPlayer) {
-        ((LivingEntityInvoker)((Object)echoPlayer)).echoplayer$detectEquipmentUpdates();
-    }
-
-    private static void setGameModeIfNeeded(ServerPlayer player, GameType gameType) {
-        if (player.gameMode.getGameModeForPlayer() != gameType) {
-            player.setGameMode(gameType);
-        }
-    }
-
-    private static void removeShell(ControllerState state) {
-        EchoPlayerManager.removeShellEntity(state.shellPlayer, state.realPlayer.server);
-    }
-
-    private static void commitControllerContainer(ControllerState state) {
-        ServerPlayer realPlayer = state.realPlayer;
-        EchoServerPlayer echoPlayer = state.echoPlayer;
-        if (realPlayer.isRemoved() || echoPlayer.isRemoved()) {
-            return;
-        }
-        EchoPlayerManager.synchronizeInventoryContents(echoPlayer, realPlayer);
-        realPlayer.closeContainer();
-        if (EchoPlayerManager.synchronizeInventoryContents(realPlayer, echoPlayer)) {
-            EchoPlayerManager.updateEchoEquipment(echoPlayer);
-        }
-    }
-
-    private static void removeShellEntity(EchoServerPlayer shellPlayer, MinecraftServer server) {
-        shellPlayer.discard();
-        ClientboundPlayerInfoRemovePacket removePacket = new ClientboundPlayerInfoRemovePacket(List.of(shellPlayer.getUUID()));
-        ClientboundRemoveEntitiesPacket entityRemovePacket = new ClientboundRemoveEntitiesPacket(shellPlayer.getId());
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.connection.send(removePacket);
-            player.connection.send(entityRemovePacket);
-        }
-    }
-
-    private static void sendPossessPacket(ControllerState state) {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        buf.writeUUID(state.echoPlayer.getUUID());
-        buf.writeInt(state.shellPlayer.getId());
-        Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
-    }
-
-    private static void sendUnpossessPacket(ServerPlayer realPlayer) {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
     }
 
     private static void hideEchoFromReal(ControllerState state) {
@@ -1859,7 +1334,7 @@ public class EchoPlayerManager {
     }
 
     public static void hideControllerFromViewer(ServerPlayer controller, ServerPlayer viewer) {
-        if (controller == viewer || viewer instanceof EchoServerPlayer || !EchoPlayerManager.isPossessing(controller)) {
+        if (controller == viewer || viewer instanceof EchoServerPlayer || !isPossessing(controller)) {
             return;
         }
         viewer.connection.send(new ClientboundRemoveEntitiesPacket(controller.getId()));
@@ -1870,14 +1345,16 @@ public class EchoPlayerManager {
             return;
         }
         for (ControllerState state : CONTROLLERS.values()) {
-            EchoPlayerManager.hideControllerFromViewer(state.realPlayer, viewer);
+            hideControllerFromViewer(state.realPlayer, viewer);
         }
     }
 
     public static void hideControllerFromObservers(ServerPlayer controller) {
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(controller.getId());
         for (ServerPlayer viewer : controller.server.getPlayerList().getPlayers()) {
-            if (viewer == controller) continue;
+            if (viewer == controller) {
+                continue;
+            }
             viewer.connection.send(destroyPacket);
         }
     }
@@ -1888,7 +1365,7 @@ public class EchoPlayerManager {
         level.getChunkSource().addEntity(controller);
     }
 
-    private static void sendPlayerEntityToViewer(ServerPlayer controller, ServerPlayer viewer) {
+    public static void sendPlayerEntityToViewer(ServerPlayer controller, ServerPlayer viewer) {
         viewer.connection.send(new ClientboundAddPlayerPacket(controller));
         List<SynchedEntityData.DataValue<?>> entityData = controller.getEntityData().getNonDefaultValues();
         if (entityData != null) {
@@ -1899,7 +1376,9 @@ public class EchoPlayerManager {
         ArrayList<Pair<EquipmentSlot, ItemStack>> equipment = new ArrayList<Pair<EquipmentSlot, ItemStack>>();
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             ItemStack item = controller.getItemBySlot(slot);
-            if (item.isEmpty()) continue;
+            if (item.isEmpty()) {
+                continue;
+            }
             equipment.add(Pair.of(slot, item.copy()));
         }
         if (!equipment.isEmpty()) {
@@ -1913,7 +1392,7 @@ public class EchoPlayerManager {
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
             return;
         }
-        EchoPlayerManager.sendEchoEntityToViewer(echoPlayer, realPlayer);
+        sendEchoEntityToViewer(echoPlayer, realPlayer);
     }
 
     private static void sendEchoEntityToViewer(EchoServerPlayer echoPlayer, ServerPlayer viewer) {
@@ -1922,7 +1401,7 @@ public class EchoPlayerManager {
         }
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
         viewer.connection.send(new ClientboundPlayerInfoUpdatePacket(actions, List.of(echoPlayer)));
-        EchoPlayerManager.sendPlayerEntityToViewer(echoPlayer, viewer);
+        sendPlayerEntityToViewer(echoPlayer, viewer);
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             ItemStack item = echoPlayer.getItemBySlot(slot);
             viewer.connection.send(new ClientboundSetEquipmentPacket(echoPlayer.getId(), List.of(Pair.of(slot, item))));
@@ -1943,12 +1422,12 @@ public class EchoPlayerManager {
             echoPlayer.serverLevel().removePlayerImmediately(echoPlayer, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
         }
         EchoPlayerSavedData.get(server).removeEchoPlayer(echoPlayer.getUUID());
-        EchoPlayerManager.deletePlayerDataFiles(server, echoPlayer.getUUID());
+        deletePlayerDataFiles(server, echoPlayer.getUUID());
     }
 
     private static void deletePlayerDataFiles(MinecraftServer server, UUID uuid) {
-        EchoPlayerManager.deletePlayerDataFile(EchoPlayerManager.getPlayerDataPath(server, uuid, ".dat"));
-        EchoPlayerManager.deletePlayerDataFile(EchoPlayerManager.getPlayerDataPath(server, uuid, ".dat_old"));
+        deletePlayerDataFile(getPlayerDataPath(server, uuid, ".dat"));
+        deletePlayerDataFile(getPlayerDataPath(server, uuid, ".dat_old"));
     }
 
     private static Path getPlayerDataPath(MinecraftServer server, UUID uuid, String suffix) {
@@ -1958,9 +1437,47 @@ public class EchoPlayerManager {
     private static void deletePlayerDataFile(Path path) {
         try {
             Files.deleteIfExists(path);
-        }
-        catch (IOException exception) {
+        } catch (IOException exception) {
             Constants.LOG.warn("Failed to delete EchoPlayer data file {}", (Object)path, (Object)exception);
+        }
+    }
+
+    private static void sendPossessPacket(ControllerState state) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf.writeUUID(state.echoPlayer.getUUID());
+        buf.writeInt(state.shellPlayer.getId());
+        Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
+    }
+
+    private static void sendUnpossessPacket(ServerPlayer realPlayer) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
+    }
+
+    private static void removeShell(ControllerState state) {
+        removeShellEntity(state.shellPlayer, state.realPlayer.server);
+    }
+
+    private static void removeShellEntity(EchoServerPlayer shellPlayer, MinecraftServer server) {
+        shellPlayer.discard();
+        ClientboundPlayerInfoRemovePacket removePacket = new ClientboundPlayerInfoRemovePacket(List.of(shellPlayer.getUUID()));
+        ClientboundRemoveEntitiesPacket entityRemovePacket = new ClientboundRemoveEntitiesPacket(shellPlayer.getId());
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.connection.send(removePacket);
+            player.connection.send(entityRemovePacket);
+        }
+    }
+
+    private static void commitControllerContainer(ControllerState state) {
+        ServerPlayer realPlayer = state.realPlayer;
+        EchoServerPlayer echoPlayer = state.echoPlayer;
+        if (realPlayer.isRemoved() || echoPlayer.isRemoved()) {
+            return;
+        }
+        StateSynchronizer.synchronizeInventoryContents(echoPlayer, realPlayer);
+        realPlayer.closeContainer();
+        if (StateSynchronizer.synchronizeInventoryContents(realPlayer, echoPlayer)) {
+            StateSynchronizer.updateEchoEquipment(echoPlayer);
         }
     }
 
@@ -2005,7 +1522,7 @@ public class EchoPlayerManager {
             this.originalGameMode = realPlayer.gameMode.getGameModeForPlayer();
             int size = echoPlayer.getInventory().getContainerSize();
             this.lastInventoryState = new ItemStack[size];
-            for (int i = 0; i < size; ++i) {
+            for (int i = 0; i < size; i++) {
                 ItemStack echoStack = echoPlayer.getInventory().getItem(i);
                 this.lastInventoryState[i] = echoStack.copy();
                 realPlayer.getInventory().setItem(i, echoStack.copy());
@@ -2033,8 +1550,5 @@ public class EchoPlayerManager {
             this.health = echoPlayer.getHealth();
             this.gameMode = echoPlayer.gameMode.getGameModeForPlayer();
         }
-    }
-
-    private record AttributeState(double baseValue, List<AttributeModifier> modifiers, Map<UUID, AttributeModifier> modifiersById, Set<UUID> permanentModifierIds) {
     }
 }
