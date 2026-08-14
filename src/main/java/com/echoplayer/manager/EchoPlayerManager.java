@@ -290,6 +290,10 @@ public class EchoPlayerManager {
             ServerPlayer::getAirSupply, EchoServerPlayer::getAirSupply,
             ServerPlayer::setAirSupply, EchoServerPlayer::setAirSupply,
             () -> state.lastAirSupply, value -> state.lastAirSupply = value);
+        StateSyncHelper.syncIntField(realPlayer, state.echoPlayer,
+            ServerPlayer::getTicksFrozen, EchoServerPlayer::getTicksFrozen,
+            ServerPlayer::setTicksFrozen, EchoServerPlayer::setTicksFrozen,
+            () -> state.lastTicksFrozen, value -> state.lastTicksFrozen = value);
         StateSynchronizer.synchronizeAttributes(state.echoPlayer, realPlayer, false);
         realPlayer.setAbsorptionAmount(state.echoPlayer.getAbsorptionAmount());
         StateSynchronizer.hideControllerBody(realPlayer);
@@ -1067,6 +1071,8 @@ public class EchoPlayerManager {
         state.lastFireTicks = echoPlayer.getRemainingFireTicks();
         realPlayer.setAirSupply(echoPlayer.getAirSupply());
         state.lastAirSupply = echoPlayer.getAirSupply();
+        realPlayer.setTicksFrozen(echoPlayer.getTicksFrozen());
+        state.lastTicksFrozen = echoPlayer.getTicksFrozen();
         boolean healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0
             || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0
             || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel()
@@ -1220,6 +1226,7 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeEffects(shellPlayer, realPlayer);
         StateSynchronizer.synchronizeAttributes(shellPlayer, realPlayer, true);
         realPlayer.setAirSupply(shellPlayer.getAirSupply());
+        realPlayer.setTicksFrozen(shellPlayer.getTicksFrozen());
         realPlayer.setHealth(Math.max(0.0f, shellPlayer.getHealth()));
         realPlayer.setAbsorptionAmount(shellPlayer.getAbsorptionAmount());
         realPlayer.getFoodData().setFoodLevel(shellPlayer.getFoodData().getFoodLevel());
@@ -1301,6 +1308,7 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeEffects(state.shellPlayer, realPlayer);
         StateSynchronizer.synchronizeAttributes(state.shellPlayer, realPlayer, true);
         realPlayer.setAirSupply(state.shellPlayer.getAirSupply());
+        realPlayer.setTicksFrozen(state.shellPlayer.getTicksFrozen());
         realPlayer.setAbsorptionAmount(state.shellPlayer.getAbsorptionAmount());
         realPlayer.setInvisible(state.shellPlayer.isInvisible());
         realPlayer.setSilent(state.shellPlayer.isSilent());
@@ -1479,6 +1487,7 @@ public class EchoPlayerManager {
         public float lastAbsorption;
         int lastFireTicks;
         int lastAirSupply;
+        int lastTicksFrozen;
         GameType lastSyncGameMode;
 
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
@@ -1503,6 +1512,7 @@ public class EchoPlayerManager {
             this.lastAbsorption = shellPlayer.getAbsorptionAmount();
             this.lastFireTicks = echoPlayer.getRemainingFireTicks();
             this.lastAirSupply = echoPlayer.getAirSupply();
+            this.lastTicksFrozen = echoPlayer.getTicksFrozen();
             realPlayer.setHealth(this.lastHealth);
             realPlayer.getFoodData().setFoodLevel(this.lastFoodLevel);
             realPlayer.getFoodData().setSaturation(this.lastSaturation);

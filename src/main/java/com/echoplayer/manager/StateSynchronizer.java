@@ -61,6 +61,7 @@ public class StateSynchronizer {
         synchronizeEffects(realPlayer, shellPlayer);
         synchronizeFireState(realPlayer, shellPlayer);
         shellPlayer.setAirSupply(realPlayer.getAirSupply());
+        shellPlayer.setTicksFrozen(realPlayer.getTicksFrozen());
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
         shellPlayer.setHealth(realPlayer.getHealth());
