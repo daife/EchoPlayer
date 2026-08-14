@@ -285,6 +285,7 @@ public class EchoPlayerManager {
             }
         }
         StateSynchronizer.synchronizeEffects(state.echoPlayer, realPlayer);
+        synchronizePossessedFireState(state);
         StateSynchronizer.synchronizeAttributes(state.echoPlayer, realPlayer, false);
         realPlayer.setAbsorptionAmount(state.echoPlayer.getAbsorptionAmount());
         StateSynchronizer.hideControllerBody(realPlayer);
@@ -309,6 +310,8 @@ public class EchoPlayerManager {
         if (entity instanceof ServerPlayer player) {
             ControllerState state = CONTROLLERS.get(player.getUUID());
             if (state != null && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying()) {
+                StateSynchronizer.synchronizeFireState(player, state.echoPlayer);
+                state.lastFireTicks = state.echoPlayer.getRemainingFireTicks();
                 copyRealStateToEcho(state, true);
                 syncCanonicalStateToController(state.session);
             }
@@ -579,6 +582,8 @@ public class EchoPlayerManager {
         boolean damaged = state.echoPlayer.hurt(source, amount);
         if (damaged && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
             copyRealStateToEcho(state, true);
+            StateSynchronizer.synchronizeFireState(state.echoPlayer, realPlayer);
+            state.lastFireTicks = state.echoPlayer.getRemainingFireTicks();
         }
         return damaged;
     }
@@ -643,6 +648,8 @@ public class EchoPlayerManager {
             if (state != null) {
                 copyRealStateToEcho(state, true);
                 ServerPlayer realPlayer = state.realPlayer;
+                StateSynchronizer.synchronizeFireState(echoPlayer, realPlayer);
+                state.lastFireTicks = echoPlayer.getRemainingFireTicks();
                 if (!realPlayer.isDeadOrDying() && !realPlayer.hasDisconnected()) {
                     realPlayer.connection.send(new ClientboundEntityEventPacket(realPlayer, (byte)2));
                     realPlayer.connection.send(new ClientboundDamageEventPacket(realPlayer, source));
@@ -858,6 +865,7 @@ public class EchoPlayerManager {
         }
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, true);
+        synchronizePossessedFireState(state);
         StateSynchronizer.hideControllerBody(realPlayer);
     }
 
@@ -991,9 +999,6 @@ public class EchoPlayerManager {
             syncHealthState(state, realPlayer, echoPlayer);
         }
         syncAbsorptionState(state, realPlayer, echoPlayer);
-        if (echoPlayer.getRemainingFireTicks() < realPlayer.getRemainingFireTicks()) {
-            echoPlayer.setRemainingFireTicks(realPlayer.getRemainingFireTicks());
-        }
         StateSynchronizer.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
         StateSynchronizer.synchronizeUsingItem(realPlayer, echoPlayer);
         if (inventoryChanged) {
@@ -1054,9 +1059,8 @@ public class EchoPlayerManager {
         StateSynchronizer.synchronizeEffects(echoPlayer, realPlayer);
         StateSynchronizer.synchronizeAttributes(echoPlayer, realPlayer, synchronizeAllAttributes);
         StateSynchronizer.copySprintingState(echoPlayer, realPlayer);
-        if (realPlayer.getRemainingFireTicks() < echoPlayer.getRemainingFireTicks()) {
-            realPlayer.setRemainingFireTicks(echoPlayer.getRemainingFireTicks());
-        }
+        StateSynchronizer.synchronizeFireState(echoPlayer, realPlayer);
+        state.lastFireTicks = echoPlayer.getRemainingFireTicks();
         boolean healthChanged = Float.compare(realPlayer.getHealth(), echoPlayer.getHealth()) != 0
             || Float.compare(realPlayer.getAbsorptionAmount(), echoPlayer.getAbsorptionAmount()) != 0
             || realPlayer.getFoodData().getFoodLevel() != echoPlayer.getFoodData().getFoodLevel()
@@ -1225,7 +1229,7 @@ public class EchoPlayerManager {
             teleportRealPlayerToShell(state);
             copyRidingTransform(shellPlayer, realPlayer);
         }
-        realPlayer.setRemainingFireTicks(shellPlayer.getRemainingFireTicks());
+        StateSynchronizer.synchronizeFireState(shellPlayer, realPlayer);
         if (shellPlayer.isSleeping()) {
             StateSynchronizer.transferSleepingState(shellPlayer, realPlayer);
             realPlayer.serverLevel().updateSleepingPlayerList();
@@ -1306,6 +1310,29 @@ public class EchoPlayerManager {
         if (session.controller != null) {
             copyEchoSharedStateToRealController(session.controller);
         }
+    }
+
+    private static void synchronizePossessedFireState(ControllerState state) {
+        int realFireTicks = state.realPlayer.getRemainingFireTicks();
+        int echoFireTicks = state.echoPlayer.getRemainingFireTicks();
+        int previousFireTicks = state.lastFireTicks;
+        int synchronizedFireTicks;
+        if (realFireTicks == echoFireTicks) {
+            synchronizedFireTicks = echoFireTicks;
+        } else if (realFireTicks > previousFireTicks && echoFireTicks <= previousFireTicks) {
+            synchronizedFireTicks = realFireTicks;
+        } else if (echoFireTicks > previousFireTicks && realFireTicks <= previousFireTicks) {
+            synchronizedFireTicks = echoFireTicks;
+        } else if (realFireTicks == 0 && echoFireTicks > 0) {
+            synchronizedFireTicks = realFireTicks;
+        } else if (echoFireTicks == 0 && realFireTicks > 0) {
+            synchronizedFireTicks = echoFireTicks;
+        } else {
+            synchronizedFireTicks = echoFireTicks;
+        }
+        StateSynchronizer.setFireState(state.realPlayer, synchronizedFireTicks);
+        StateSynchronizer.setFireState(state.echoPlayer, synchronizedFireTicks);
+        state.lastFireTicks = synchronizedFireTicks;
     }
 
     private static void hideEchoFromReal(ControllerState state) {
@@ -1442,6 +1469,7 @@ public class EchoPlayerManager {
         public float lastSaturation;
         public float lastExhaustion;
         public float lastAbsorption;
+        int lastFireTicks;
         GameType lastSyncGameMode;
 
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
@@ -1464,6 +1492,7 @@ public class EchoPlayerManager {
             this.lastSaturation = shellPlayer.getFoodData().getSaturationLevel();
             this.lastExhaustion = shellPlayer.getFoodData().getExhaustionLevel();
             this.lastAbsorption = shellPlayer.getAbsorptionAmount();
+            this.lastFireTicks = echoPlayer.getRemainingFireTicks();
             realPlayer.setHealth(this.lastHealth);
             realPlayer.getFoodData().setFoodLevel(this.lastFoodLevel);
             realPlayer.getFoodData().setSaturation(this.lastSaturation);

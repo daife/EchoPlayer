@@ -59,6 +59,7 @@ public class StateSynchronizer {
         synchronizeInventoryContents(realPlayer, shellPlayer);
         setGameModeIfNeeded(shellPlayer, realPlayer.gameMode.getGameModeForPlayer());
         synchronizeEffects(realPlayer, shellPlayer);
+        synchronizeFireState(realPlayer, shellPlayer);
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
         shellPlayer.setHealth(realPlayer.getHealth());
@@ -96,6 +97,15 @@ public class StateSynchronizer {
 
     static void copyInventoryContents(ServerPlayer source, ServerPlayer target) {
         synchronizeInventoryContents(source, target);
+    }
+
+    static void synchronizeFireState(ServerPlayer source, ServerPlayer target) {
+        setFireState(target, source.getRemainingFireTicks());
+    }
+
+    static void setFireState(ServerPlayer target, int fireTicks) {
+        target.setRemainingFireTicks(fireTicks);
+        target.setSharedFlagOnFire(fireTicks > 0);
     }
 
     static void synchronizeEffects(ServerPlayer source, ServerPlayer target) {
