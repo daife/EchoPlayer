@@ -558,6 +558,10 @@ public class EchoPlayerManager {
             return "You are already controlling an EchoPlayer.";
         }
         session.controller = state;
+        // Treat orientation as a separate state from riding.  Mounting changes a
+        // rider's position, but must never decide which direction the camera faces.
+        ViewRotation bodyView = state.originalBodyView;
+        ViewRotation echoView = captureViewRotation(echoPlayer);
         Entity realVehicle = realPlayer.getVehicle();
         if (realVehicle != null) {
             realPlayer.stopRiding();
@@ -566,28 +570,27 @@ public class EchoPlayerManager {
         if (echoVehicle != null) {
             echoPlayer.stopRiding();
         }
+        if (realVehicle != null) {
+            shell.startRiding(realVehicle, true);
+            applyViewRotation(shell, bodyView);
+        }
+
         teleportRealPlayerToEcho(state, true);
         copyEchoStateToRealController(state);
-        copyRidingTransform(echoPlayer, realPlayer);
         if (echoPlayer.isSleeping()) {
             StateSynchronizer.transferSleepingState(echoPlayer, realPlayer);
         }
+        if (echoVehicle != null) {
+            realPlayer.startRiding(echoVehicle, true);
+        }
+        synchronizeViewRotation(realPlayer, echoView);
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, true);
         StateSynchronizer.hideControllerBody(realPlayer);
         sendPossessPacket(state);
         hideEchoFromReal(state);
         hideControllerFromObservers(realPlayer);
-        if (realVehicle != null) {
-            copyRidingTransform(realPlayer, shell);
-            shell.startRiding(realVehicle, true);
-            copyRidingTransform(realPlayer, shell);
-        }
-        if (echoVehicle != null) {
-            copyRidingTransform(echoPlayer, realPlayer);
-            realPlayer.startRiding(echoVehicle, true);
-            copyRidingTransform(echoPlayer, realPlayer);
-        }
+        applyViewRotation(shell, bodyView);
         updateLogicalSleepStatus(state);
         return null;
     }
@@ -696,6 +699,9 @@ public class EchoPlayerManager {
         if (state == null) {
             return;
         }
+        // Capture the controlled view before changing either mount relation.
+        // This is the view which becomes the EchoPlayer's persistent view.
+        ViewRotation controllerView = captureViewRotation(realPlayer);
         Entity controlledVehicle = realPlayer.getVehicle();
         if (controlledVehicle != null) {
             realPlayer.stopRiding();
@@ -711,14 +717,13 @@ public class EchoPlayerManager {
             StateSynchronizer.transferSleepingState(realPlayer, state.echoPlayer);
         }
         if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            copyRidingTransform(realPlayer, state.echoPlayer);
             state.echoPlayer.startRiding(controlledVehicle, true);
-            copyRidingTransform(realPlayer, state.echoPlayer);
         }
+        applyViewRotation(state.echoPlayer, controllerView);
         removeControllerState(state);
-        removeShell(state);
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
+            synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
             sendUnpossessPacket(realPlayer);
             reshowEchoToReal(state);
             removeCrashBackup(realPlayer);
@@ -727,11 +732,11 @@ public class EchoPlayerManager {
             sendUnpossessPacket(realPlayer);
             removeCrashBackup(realPlayer);
         }
+        removeShell(state);
         showControllerToObservers(realPlayer);
         if (realVehicle != null && !realPlayer.isDeadOrDying()) {
-            copyRidingTransform(state.shellPlayer, realPlayer);
             realPlayer.startRiding(realVehicle, true);
-            copyRidingTransform(state.shellPlayer, realPlayer);
+            synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
         }
         updateLogicalSleepStatus(state);
     }
@@ -774,6 +779,7 @@ public class EchoPlayerManager {
             shellPlayer.discard();
             return;
         }
+        ViewRotation controllerView = captureViewRotation(state.realPlayer);
         PendingEchoReshow pendingEchoReshow = new PendingEchoReshow(state.echoPlayer);
         commitControllerContainer(state);
         syncControlledEchoToController(state);
@@ -790,6 +796,7 @@ public class EchoPlayerManager {
         state.realPlayer.setHealth(0.0f);
         state.realPlayer.die(source);
         restoreEchoStateAndWorld(state.echoPlayer, pendingEchoReshow);
+        applyViewRotation(state.echoPlayer, controllerView);
         removeCrashBackup(state.realPlayer);
     }
 
@@ -948,10 +955,7 @@ public class EchoPlayerManager {
         shellConn.setListener(shellListener);
         shell.setGameMode(realPlayer.gameMode.getGameModeForPlayer());
         shell.setPos(realPlayer.getX(), realPlayer.getY(), realPlayer.getZ());
-        shell.setYRot(realPlayer.getYRot());
-        shell.setXRot(realPlayer.getXRot());
-        shell.yHeadRot = realPlayer.yHeadRot;
-        shell.yBodyRot = realPlayer.yBodyRot;
+        applyViewRotation(shell, captureViewRotation(realPlayer));
         StateSynchronizer.copyRealStateToShell(realPlayer, shell);
         StateSynchronizer.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
@@ -1185,6 +1189,29 @@ public class EchoPlayerManager {
         target.setDeltaMovement(source.getDeltaMovement());
     }
 
+    private static ViewRotation captureViewRotation(ServerPlayer player) {
+        return new ViewRotation(player.getYRot(), player.getXRot(), player.yHeadRot, player.yBodyRot);
+    }
+
+    private static void applyViewRotation(ServerPlayer player, ViewRotation view) {
+        player.setYRot(view.yRot);
+        player.setXRot(view.xRot);
+        player.yHeadRot = view.yHeadRot;
+        player.yBodyRot = view.yBodyRot;
+    }
+
+    /**
+     * Applies an authoritative view after a teleport or mount change and sends it
+     * to the owning client.  Entity tracking packets do not reliably update the
+     * local player's camera, especially when the player is a passenger.
+     */
+    private static void synchronizeViewRotation(ServerPlayer player, ViewRotation view) {
+        applyViewRotation(player, view);
+        if (!player.hasDisconnected() && !player.isDeadOrDying()) {
+            player.connection.teleport(player.getX(), player.getY(), player.getZ(), view.yRot, view.xRot);
+        }
+    }
+
     public static void createCrashBackup(ServerPlayer player) {
         try {
             CompoundTag backupTag = new CompoundTag();
@@ -1316,8 +1343,8 @@ public class EchoPlayerManager {
         EchoServerPlayer echoPlayer = state.echoPlayer;
         ServerLevel echoLevel = echoPlayer.serverLevel();
         boolean requiresTerrainDownload = realPlayer.level().dimension() != echoLevel.dimension() || realPlayer.distanceToSqr(echoPlayer) > 4096.0;
-        float yRot = echoPlayer.isPassenger() ? realPlayer.getYRot() : echoPlayer.getYRot();
-        float xRot = echoPlayer.isPassenger() ? realPlayer.getXRot() : echoPlayer.getXRot();
+        float yRot = echoPlayer.getYRot();
+        float xRot = echoPlayer.getXRot();
         if (realPlayer.level().dimension() != echoLevel.dimension()) {
             realPlayer.teleportTo(echoLevel, echoPlayer.getX(), echoPlayer.getY(), echoPlayer.getZ(), yRot, xRot);
         } else if (forcePacket) {
@@ -1521,6 +1548,7 @@ public class EchoPlayerManager {
         final EchoServerPlayer echoPlayer;
         final EchoServerPlayer shellPlayer;
         final PossessionSession session;
+        final ViewRotation originalBodyView;
         final ListTag originalInventory;
         final GameType originalGameMode;
         public ItemStack[] lastInventoryState;
@@ -1543,6 +1571,7 @@ public class EchoPlayerManager {
             this.echoPlayer = echoPlayer;
             this.shellPlayer = shellPlayer;
             this.session = session;
+            this.originalBodyView = captureViewRotation(realPlayer);
             this.originalInventory = new ListTag();
             realPlayer.getInventory().save(this.originalInventory);
             this.originalGameMode = realPlayer.gameMode.getGameModeForPlayer();
@@ -1571,6 +1600,20 @@ public class EchoPlayerManager {
             realPlayer.getFoodData().setSaturation(this.lastSaturation);
             realPlayer.getFoodData().setExhaustion(this.lastExhaustion);
             this.lastSyncGameMode = this.originalGameMode;
+        }
+    }
+
+    private static final class ViewRotation {
+        final float yRot;
+        final float xRot;
+        final float yHeadRot;
+        final float yBodyRot;
+
+        ViewRotation(float yRot, float xRot, float yHeadRot, float yBodyRot) {
+            this.yRot = yRot;
+            this.xRot = xRot;
+            this.yHeadRot = yHeadRot;
+            this.yBodyRot = yBodyRot;
         }
     }
 
