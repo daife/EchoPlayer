@@ -287,6 +287,7 @@ public class EchoPlayerManager {
         }
         StateSynchronizer.synchronizeEffects(state.echoPlayer, realPlayer);
         synchronizePossessedFireState(state);
+        StateSynchronizer.copyCooldownState(state.echoPlayer, state.realPlayer);
         StateSyncHelper.syncIntField(realPlayer, state.echoPlayer,
             ServerPlayer::getAirSupply, EchoServerPlayer::getAirSupply,
             ServerPlayer::setAirSupply, EchoServerPlayer::setAirSupply,
@@ -1099,6 +1100,7 @@ public class EchoPlayerManager {
         realPlayer.setGlowingTag(echoPlayer.hasGlowingTag());
         state.lastGlowing = echoPlayer.hasGlowingTag();
         StateSynchronizer.copyFoodState(echoPlayer, realPlayer);
+        StateSynchronizer.copyCooldownState(echoPlayer, realPlayer);
         state.lastFoodLevel = echoPlayer.getFoodData().getFoodLevel();
         state.lastSaturation = echoPlayer.getFoodData().getSaturationLevel();
         state.lastExhaustion = echoPlayer.getFoodData().getExhaustionLevel();
@@ -1266,6 +1268,7 @@ public class EchoPlayerManager {
         realPlayer.setAirSupply(shellPlayer.getAirSupply());
         realPlayer.setTicksFrozen(shellPlayer.getTicksFrozen());
         StateSynchronizer.copyFoodState(shellPlayer, realPlayer);
+        StateSynchronizer.copyCooldownStateAndPackets(shellPlayer, realPlayer);
         realPlayer.setHealth(Math.max(0.0f, shellPlayer.getHealth()));
         realPlayer.setAbsorptionAmount(shellPlayer.getAbsorptionAmount());
         realPlayer.experienceLevel = shellPlayer.experienceLevel;
@@ -1348,6 +1351,7 @@ public class EchoPlayerManager {
         realPlayer.setAirSupply(state.shellPlayer.getAirSupply());
         realPlayer.setTicksFrozen(state.shellPlayer.getTicksFrozen());
         StateSynchronizer.copyFoodState(state.shellPlayer, realPlayer);
+        StateSynchronizer.copyCooldownStateAndPackets(state.shellPlayer, realPlayer);
         realPlayer.setAbsorptionAmount(state.shellPlayer.getAbsorptionAmount());
         realPlayer.setInvisible(state.shellPlayer.isInvisible());
         realPlayer.setSilent(state.shellPlayer.isSilent());

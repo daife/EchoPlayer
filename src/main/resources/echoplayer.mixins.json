@@ -25,6 +25,8 @@
                    "MixinLivingEntityEffects",
                    "MobEffectInstanceAccessor",
                    "FoodDataAccessor",
+                   "ItemCooldownsAccessor",
+                   "CooldownInstanceAccessor",
                    "CommandSourceStackAccessor",
                    "LivingEntityInvoker",
                    "ServerGamePacketListenerImplAccessor",

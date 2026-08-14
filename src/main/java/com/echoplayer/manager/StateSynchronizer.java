@@ -4,7 +4,9 @@ import com.echoplayer.Constants;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.mixin.AttributeInstanceAccessor;
 import com.echoplayer.mixin.AttributeMapAccessor;
+import com.echoplayer.mixin.CooldownInstanceAccessor;
 import com.echoplayer.mixin.FoodDataAccessor;
+import com.echoplayer.mixin.ItemCooldownsAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.mixin.MobEffectInstanceAccessor;
 import com.echoplayer.mixin.PlayerAccessor;
@@ -24,6 +26,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundCooldownPacket;
 import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
@@ -64,6 +67,7 @@ public class StateSynchronizer {
         shellPlayer.setAirSupply(realPlayer.getAirSupply());
         shellPlayer.setTicksFrozen(realPlayer.getTicksFrozen());
         copyFoodState(realPlayer, shellPlayer);
+        copyCooldownState(realPlayer, shellPlayer);
         synchronizeAttributes(realPlayer, shellPlayer, true);
         copySprintingState(realPlayer, shellPlayer);
         shellPlayer.setInvisible(realPlayer.isInvisible());
@@ -114,6 +118,28 @@ public class StateSynchronizer {
         FoodDataAccessor targetFood = (FoodDataAccessor)((Object)target.getFoodData());
         targetFood.echoplayer$setTickTimer(sourceFood.echoplayer$getTickTimer());
         targetFood.echoplayer$setLastFoodLevel(sourceFood.echoplayer$getLastFoodLevel());
+    }
+
+    static void copyCooldownState(ServerPlayer source, ServerPlayer target) {
+        ItemCooldownsAccessor sourceCooldowns = (ItemCooldownsAccessor)((Object)source.getCooldowns());
+        ItemCooldownsAccessor targetCooldowns = (ItemCooldownsAccessor)((Object)target.getCooldowns());
+        targetCooldowns.echoplayer$getCooldowns().clear();
+        targetCooldowns.echoplayer$getCooldowns().putAll(sourceCooldowns.echoplayer$getCooldowns());
+        targetCooldowns.echoplayer$setTickCount(sourceCooldowns.echoplayer$getTickCount());
+    }
+
+    static void copyCooldownStateAndPackets(ServerPlayer source, ServerPlayer target) {
+        ItemCooldownsAccessor sourceCooldowns = (ItemCooldownsAccessor)((Object)source.getCooldowns());
+        ItemCooldownsAccessor targetCooldowns = (ItemCooldownsAccessor)((Object)target.getCooldowns());
+        java.util.HashSet<net.minecraft.world.item.Item> items = new java.util.HashSet<>(targetCooldowns.echoplayer$getCooldowns().keySet());
+        items.addAll(sourceCooldowns.echoplayer$getCooldowns().keySet());
+        copyCooldownState(source, target);
+        int tickCount = sourceCooldowns.echoplayer$getTickCount();
+        for (net.minecraft.world.item.Item item : items) {
+            Object cooldown = sourceCooldowns.echoplayer$getCooldowns().get(item);
+            int duration = cooldown == null ? 0 : Math.max(0, ((CooldownInstanceAccessor)cooldown).echoplayer$getEndTime() - tickCount);
+            target.connection.send(new ClientboundCooldownPacket(item, duration));
+        }
     }
 
     static void synchronizeFireState(ServerPlayer source, ServerPlayer target) {
