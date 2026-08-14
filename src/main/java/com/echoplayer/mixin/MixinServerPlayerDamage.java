@@ -14,6 +14,10 @@ public class MixinServerPlayerDamage {
     private void onHurt(DamageSource pSource, float pAmount, CallbackInfoReturnable<Boolean> cir) {
         ServerPlayer player = (ServerPlayer)((Object)this);
         if (EchoPlayerManager.isPossessing(player)) {
+            if (EchoPlayerManager.shouldIgnorePossessedEnvironmentalFireDamage(player, pSource)) {
+                cir.setReturnValue(false);
+                return;
+            }
             cir.setReturnValue(EchoPlayerManager.handlePossessedDamage(player, pSource, pAmount));
         }
     }

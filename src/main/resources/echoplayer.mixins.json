@@ -23,6 +23,7 @@
                    "MixinAttributeCommand",
                    "MixinEffectCommands",
                    "MixinLivingEntityEffects",
+                   "MixinLivingEntityEffectMutations",
                    "MobEffectInstanceAccessor",
                    "FoodDataAccessor",
                    "ItemCooldownsAccessor",

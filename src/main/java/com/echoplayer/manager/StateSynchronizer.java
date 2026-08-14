@@ -433,6 +433,8 @@ public class StateSynchronizer {
         if (sleepingPos.isEmpty()) {
             return;
         }
+        ServerLevel fromLevel = from.serverLevel();
+        ServerLevel toLevel = to.serverLevel();
         BlockPos bedPos = sleepingPos.get();
         int sleepTimer = ((PlayerAccessor)((Object)from)).echoplayer$getSleepCounter();
         from.clearSleepingPos();
@@ -445,6 +447,13 @@ public class StateSynchronizer {
         var bedState = to.level().getBlockState(bedPos);
         if (bedState.isBed(to.level(), bedPos, to)) {
             bedState.setBedOccupied(to.level(), bedPos, to, true);
+        }
+        // Transfer changes which player contributes to the sleep percentage.
+        // Keep this here so every possession, release, and forced-release path
+        // refreshes the relevant level lists.
+        fromLevel.updateSleepingPlayerList();
+        if (toLevel != fromLevel) {
+            toLevel.updateSleepingPlayerList();
         }
     }
 

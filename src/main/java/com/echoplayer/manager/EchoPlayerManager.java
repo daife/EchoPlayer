@@ -59,6 +59,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -308,6 +309,56 @@ public class EchoPlayerManager {
         realPlayer.setAbsorptionAmount(state.echoPlayer.getAbsorptionAmount());
         StateSynchronizer.hideControllerBody(realPlayer);
         realPlayer.absMoveTo(state.echoPlayer.getX(), state.echoPlayer.getY(), state.echoPlayer.getZ(), realPlayer.getYRot(), realPlayer.getXRot());
+    }
+
+    /**
+     * Keeps effects applied through ordinary gameplay and mod APIs in sync.
+     * Commands have their own hooks, but drinking a potion or a mod calling
+     * LivingEntity#addEffect previously had to wait for the next tick.
+     */
+    public static void syncPossessedEffectMutation(LivingEntity entity) {
+        if (entity instanceof EchoServerPlayer echoPlayer) {
+            if (echoPlayer.linkedRealPlayer != null) {
+                return;
+            }
+            PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
+            if (session == null || session.controller == null || session.synchronizingEffects) {
+                return;
+            }
+            session.synchronizingEffects = true;
+            try {
+                copyEchoSharedStateToRealController(session.controller);
+            } finally {
+                session.synchronizingEffects = false;
+            }
+            return;
+        }
+        if (!(entity instanceof ServerPlayer realPlayer)) {
+            return;
+        }
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        if (state == null || state.echoPlayer.isRemoved() || state.echoPlayer.isDeadOrDying() || state.session.synchronizingEffects) {
+            return;
+        }
+        state.session.synchronizingEffects = true;
+        try {
+            copyRealStateToEcho(state, true);
+        } finally {
+            state.session.synchronizingEffects = false;
+        }
+    }
+
+    /**
+     * The hidden controller and Echo occupy the same space.  Environmental fire
+     * can therefore attempt to damage both in one tick; the Echo is canonical.
+     */
+    public static boolean shouldIgnorePossessedEnvironmentalFireDamage(ServerPlayer realPlayer, DamageSource source) {
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        return state != null
+            && source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
+            && source.getEntity() == null
+            && source.getDirectEntity() == null
+            && state.echoPlayer.getRemainingFireTicks() > 0;
     }
 
     public static boolean shouldCancelPossessedEchoEffectTick(EchoServerPlayer echoPlayer) {
@@ -1537,6 +1588,7 @@ public class EchoPlayerManager {
         float lastDamageAmount;
         long lastEffectTickGameTime = Long.MIN_VALUE;
         boolean tickingCanonicalEffects;
+        boolean synchronizingEffects;
 
         PossessionSession(EchoServerPlayer echoPlayer) {
             this.echoPlayer = echoPlayer;
