@@ -18,6 +18,7 @@
                    "MixinServerPlayerDamage",
                    "MixinServerPlayer",
                    "identity.MixinTamableAnimal",
+                   "identity.compat.MixinTouhouLittleMaidItemSmartSlab",
                    "PlayerAccessor",
                    "MixinDamageSource",
                    "sync.MixinAttributeCommand",

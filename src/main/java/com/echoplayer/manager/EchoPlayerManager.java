@@ -90,6 +90,28 @@ public class EchoPlayerManager {
         return player.getUUID();
     }
 
+    /**
+     * Treats the authenticated player and the EchoPlayer they currently
+     * possess as the same identity for ownership checks that cannot accept a
+     * logical Player instance. This is deliberately session-scoped: stored
+     * item ownership is never rewritten and unrelated players remain distinct.
+     */
+    public static boolean arePossessionIdentitiesEquivalent(UUID first, Object second) {
+        if (!(second instanceof UUID secondId)) {
+            return false;
+        }
+        if (first.equals(secondId)) {
+            return true;
+        }
+
+        ControllerState firstController = CONTROLLERS.get(first);
+        if (firstController != null && firstController.echoPlayer.getUUID().equals(secondId)) {
+            return true;
+        }
+        ControllerState secondController = CONTROLLERS.get(secondId);
+        return secondController != null && secondController.echoPlayer.getUUID().equals(first);
+    }
+
     public static ServerPlayer getPossessor(EchoServerPlayer echoPlayer) {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
         return session != null && session.controller != null ? session.controller.realPlayer : null;
