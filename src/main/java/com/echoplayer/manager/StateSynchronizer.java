@@ -410,6 +410,7 @@ public class StateSynchronizer {
         realPlayer.connection.send(new ClientboundSetHealthPacket(realPlayer.getHealth(), realPlayer.getFoodData().getFoodLevel(), realPlayer.getFoodData().getSaturationLevel()));
         realPlayer.connection.send(new ClientboundSetExperiencePacket(realPlayer.experienceProgress, realPlayer.totalExperience, realPlayer.experienceLevel));
         realPlayer.connection.send(new ClientboundPlayerAbilitiesPacket(realPlayer.getAbilities()));
+        realPlayer.connection.send(new ClientboundSetCarriedItemPacket(realPlayer.getInventory().selected));
     }
 
     static void hideControllerBody(ServerPlayer realPlayer) {

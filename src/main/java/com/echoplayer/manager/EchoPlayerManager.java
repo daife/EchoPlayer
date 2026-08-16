@@ -1071,7 +1071,6 @@ public class EchoPlayerManager {
             removeShell(state);
             if (!state.realPlayer.isDeadOrDying()) {
                 restoreRealPlayerFromShell(state, true);
-                copyEchoSharedStateToRealController(state);
                 showControllerToObservers(state.realPlayer);
                 applyPassiveAvatarViews(passiveViews);
                 sendUnpossessPacket(state.realPlayer, passiveViews);
