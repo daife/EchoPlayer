@@ -6,6 +6,12 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(value={Player.class})
 public interface PlayerAccessor {
+    @Accessor("takeXpDelay")
+    int echoplayer$getTakeXpDelay();
+
+    @Accessor("takeXpDelay")
+    void echoplayer$setTakeXpDelay(int takeXpDelay);
+
     @Accessor("sleepCounter")
     int echoplayer$getSleepCounter();
 

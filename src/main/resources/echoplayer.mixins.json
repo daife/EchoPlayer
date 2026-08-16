@@ -30,6 +30,7 @@
                    "ItemCooldownsAccessor",
                    "CooldownInstanceAccessor",
                    "CommandSourceStackAccessor",
+                   "LivingEntityAccessor",
                    "LivingEntityInvoker",
                    "ServerGamePacketListenerImplAccessor",
                    "AttributeInstanceAccessor",

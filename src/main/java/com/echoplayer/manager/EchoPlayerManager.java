@@ -1181,7 +1181,7 @@ public class EchoPlayerManager {
         }
         syncAbsorptionState(state, realPlayer, echoPlayer);
         StateSynchronizer.copyAbilitiesIfDifferent(realPlayer, echoPlayer);
-        StateSynchronizer.synchronizeUsingItem(realPlayer, echoPlayer);
+        StateSynchronizer.synchronizeActionState(realPlayer, echoPlayer);
         if (inventoryChanged) {
             StateSynchronizer.updateEchoEquipment(echoPlayer);
         }
@@ -1232,6 +1232,7 @@ public class EchoPlayerManager {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         copyEchoSharedStateToRealController(state, true);
+        StateSynchronizer.copyMovementState(echoPlayer, realPlayer);
         if (needsTeleportToEcho(state)) {
             teleportRealPlayerToEcho(state, false);
         }
@@ -1296,7 +1297,7 @@ public class EchoPlayerManager {
             realPlayer.totalExperience = echoPlayer.totalExperience;
         }
         boolean abilitiesChanged = StateSynchronizer.copyAbilitiesIfDifferent(echoPlayer, realPlayer);
-        StateSynchronizer.synchronizeUsingItem(echoPlayer, realPlayer);
+        StateSynchronizer.synchronizeActionState(echoPlayer, realPlayer);
         if (healthChanged) {
             realPlayer.connection.send(new ClientboundSetHealthPacket(realPlayer.getHealth(), realPlayer.getFoodData().getFoodLevel(), realPlayer.getFoodData().getSaturationLevel()));
         }
@@ -1328,24 +1329,14 @@ public class EchoPlayerManager {
         }
         echoPlayer.yHeadRot = realPlayer.yHeadRot;
         echoPlayer.yBodyRot = realPlayer.yBodyRot;
-        echoPlayer.setPose(realPlayer.getPose());
-        echoPlayer.setShiftKeyDown(realPlayer.isShiftKeyDown());
-        StateSynchronizer.copySprintingState(realPlayer, echoPlayer);
-        echoPlayer.setOnGround(realPlayer.onGround());
-        echoPlayer.fallDistance = realPlayer.fallDistance;
-        echoPlayer.setDeltaMovement(realPlayer.getDeltaMovement());
+        StateSynchronizer.copyMovementState(realPlayer, echoPlayer);
     }
 
     private static void copyRidingTransform(ServerPlayer source, ServerPlayer target) {
         target.moveTo(source.getX(), source.getY(), source.getZ(), source.getYRot(), source.getXRot());
         target.yHeadRot = source.yHeadRot;
         target.yBodyRot = source.yBodyRot;
-        target.setPose(source.getPose());
-        target.setShiftKeyDown(source.isShiftKeyDown());
-        StateSynchronizer.copySprintingState(source, target);
-        target.setOnGround(source.onGround());
-        target.fallDistance = source.fallDistance;
-        target.setDeltaMovement(source.getDeltaMovement());
+        StateSynchronizer.copyMovementState(source, target);
     }
 
     private static ViewRotation captureViewRotation(ServerPlayer player) {
@@ -1520,6 +1511,7 @@ public class EchoPlayerManager {
         realPlayer.experienceProgress = shellPlayer.experienceProgress;
         realPlayer.totalExperience = shellPlayer.totalExperience;
         StateSynchronizer.copyAbilities(shellPlayer, realPlayer);
+        StateSynchronizer.synchronizeActionState(shellPlayer, realPlayer);
         realPlayer.setInvisible(shellPlayer.isInvisible());
         realPlayer.setSilent(shellPlayer.isSilent());
         realPlayer.setGlowingTag(shellPlayer.hasGlowingTag());
@@ -1702,6 +1694,7 @@ public class EchoPlayerManager {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
+        buf.writeBoolean(state.realPlayer.isShiftKeyDown());
         writeViewRotation(buf, captureViewRotation(state.realPlayer));
         writeEntityViewRotations(buf, passiveViews);
         Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
@@ -1709,6 +1702,7 @@ public class EchoPlayerManager {
 
     private static void sendUnpossessPacket(ServerPlayer realPlayer, List<EntityViewRotation> passiveViews) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        buf.writeBoolean(realPlayer.isShiftKeyDown());
         writeViewRotation(buf, captureViewRotation(realPlayer));
         writeEntityViewRotations(buf, passiveViews);
         Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);

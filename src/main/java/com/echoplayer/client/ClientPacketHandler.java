@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.ToggleKeyMapping;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,12 +16,14 @@ public class ClientPacketHandler {
     public static void handlePossessPacket(FriendlyByteBuf buf) {
         UUID echoUUID = buf.readUUID();
         int shellId = buf.readInt();
+        applyLocalCrouchState(buf.readBoolean());
         applyLocalPlayerRotation(buf);
         ClientPossessionData.beginPossession(echoUUID, shellId);
         queueEntityRotations(buf);
     }
 
     public static void handleUnpossessPacket(FriendlyByteBuf buf) {
+        applyLocalCrouchState(buf.readBoolean());
         applyLocalPlayerRotation(buf);
         ClientPossessionData.reset();
         queueEntityRotations(buf);
@@ -52,6 +55,21 @@ public class ClientPacketHandler {
             float yBodyRot = buf.readFloat();
             ClientPossessionData.queueEntityRotation(entityId, yRot, xRot, yHeadRot, yBodyRot);
         }
+    }
+
+    private static void applyLocalCrouchState(boolean crouching) {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (player == null) {
+            return;
+        }
+        if (minecraft.options.toggleCrouch().get() && minecraft.options.keyShift instanceof ToggleKeyMapping toggleKey) {
+            if (toggleKey.isDown() != crouching) {
+                toggleKey.setDown(true);
+            }
+        }
+        player.setShiftKeyDown(crouching);
+        player.input.shiftKeyDown = crouching;
     }
 
     /**

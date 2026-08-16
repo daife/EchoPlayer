@@ -7,10 +7,9 @@ import com.echoplayer.mixin.AttributeMapAccessor;
 import com.echoplayer.mixin.CooldownInstanceAccessor;
 import com.echoplayer.mixin.FoodDataAccessor;
 import com.echoplayer.mixin.ItemCooldownsAccessor;
+import com.echoplayer.mixin.LivingEntityAccessor;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.mixin.MobEffectInstanceAccessor;
-import com.echoplayer.mixin.PlayerAccessor;
-import com.echoplayer.mixin.ServerGamePacketListenerImplAccessor;
 import com.echoplayer.mixin.PlayerAccessor;
 import com.echoplayer.mixin.ServerGamePacketListenerImplAccessor;
 import com.echoplayer.platform.Services;
@@ -52,6 +51,7 @@ import net.minecraft.world.level.block.Blocks;
 
 public class StateSynchronizer {
 
+    private static final int LIVING_ENTITY_FLAG_SPIN_ATTACK = 4;
     private static final UUID SPRINTING_SPEED_MODIFIER_ID = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
     private static final Set<UUID> MOVEMENT_SPEED_STATE_MODIFIER_IDS = Set.of(
         SPRINTING_SPEED_MODIFIER_ID,
@@ -69,7 +69,7 @@ public class StateSynchronizer {
         copyFoodState(realPlayer, shellPlayer);
         copyCooldownState(realPlayer, shellPlayer);
         synchronizeAttributes(realPlayer, shellPlayer, true);
-        copySprintingState(realPlayer, shellPlayer);
+        copyMovementState(realPlayer, shellPlayer);
         shellPlayer.setInvisible(realPlayer.isInvisible());
         shellPlayer.setSilent(realPlayer.isSilent());
         shellPlayer.setGlowingTag(realPlayer.hasGlowingTag());
@@ -81,6 +81,7 @@ public class StateSynchronizer {
         shellPlayer.experienceProgress = realPlayer.experienceProgress;
         shellPlayer.totalExperience = realPlayer.totalExperience;
         copyAbilities(realPlayer, shellPlayer);
+        synchronizeActionState(realPlayer, shellPlayer);
     }
 
     static boolean synchronizeInventoryContents(ServerPlayer source, ServerPlayer target) {
@@ -390,9 +391,42 @@ public class StateSynchronizer {
                 target.stopUsingItem();
                 target.startUsingItem(source.getUsedItemHand());
             }
+            ((LivingEntityAccessor)((Object)target)).echoplayer$setUseItemRemaining(source.getUseItemRemainingTicks());
         } else if (target.isUsingItem()) {
             target.stopUsingItem();
         }
+    }
+
+    static void synchronizeActionState(ServerPlayer source, ServerPlayer target) {
+        synchronizeUsingItem(source, target);
+        LivingEntityAccessor sourceLiving = (LivingEntityAccessor)((Object)source);
+        LivingEntityAccessor targetLiving = (LivingEntityAccessor)((Object)target);
+        targetLiving.echoplayer$setAttackStrengthTicker(sourceLiving.echoplayer$getAttackStrengthTicker());
+        PlayerAccessor sourcePlayer = (PlayerAccessor)((Object)source);
+        PlayerAccessor targetPlayer = (PlayerAccessor)((Object)target);
+        targetPlayer.echoplayer$setTakeXpDelay(sourcePlayer.echoplayer$getTakeXpDelay());
+    }
+
+    static void copyMovementState(ServerPlayer source, ServerPlayer target) {
+        target.setShiftKeyDown(source.isShiftKeyDown());
+        copySprintingState(source, target);
+        target.setSwimming(source.isSwimming());
+        if (target.isFallFlying() != source.isFallFlying()) {
+            if (source.isFallFlying()) {
+                target.startFallFlying();
+            } else {
+                target.stopFallFlying();
+            }
+        }
+        ((LivingEntityAccessor)((Object)target)).echoplayer$setFallFlyTicks(source.getFallFlyingTicks());
+        LivingEntityAccessor sourceLiving = (LivingEntityAccessor)((Object)source);
+        LivingEntityAccessor targetLiving = (LivingEntityAccessor)((Object)target);
+        targetLiving.echoplayer$setAutoSpinAttackTicks(sourceLiving.echoplayer$getAutoSpinAttackTicks());
+        ((LivingEntityInvoker)((Object)target)).echoplayer$setLivingEntityFlag(LIVING_ENTITY_FLAG_SPIN_ATTACK, source.isAutoSpinAttack());
+        target.setPose(source.getPose());
+        target.setOnGround(source.onGround());
+        target.fallDistance = source.fallDistance;
+        target.setDeltaMovement(source.getDeltaMovement());
     }
 
     static void updateEchoEquipment(EchoServerPlayer echoPlayer) {
