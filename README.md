@@ -14,6 +14,13 @@ clients.
 
 The root command is `/echoplayer`.
 
+## Controls
+
+- Press `O` to run `/echoplayer unpossess` immediately.
+- Hold `Left Alt` to open the possession wheel, point at your real player or an
+  EchoPlayer, and release the key to switch. Release while the pointer is in the
+  center to cancel. Both controls can be rebound in Minecraft's key settings.
+
 ## Development
 
 - Minecraft: 1.20.1

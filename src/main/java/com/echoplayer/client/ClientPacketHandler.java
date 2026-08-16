@@ -1,5 +1,8 @@
 package com.echoplayer.client;
 
+import com.echoplayer.client.wheel.PossessionWheelScreen;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -7,6 +10,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.LivingEntity;
 
 public class ClientPacketHandler {
+    private static final int MAX_WHEEL_ENTRIES = 1024;
+
     public static void handlePossessPacket(FriendlyByteBuf buf) {
         UUID echoUUID = buf.readUUID();
         int shellId = buf.readInt();
@@ -19,6 +24,22 @@ public class ClientPacketHandler {
         applyLocalPlayerRotation(buf);
         ClientPossessionData.reset();
         queueEntityRotations(buf);
+    }
+
+    public static void handlePossessionWheelData(FriendlyByteBuf buf) {
+        if (buf.readableBytes() < Integer.BYTES + 1) {
+            return;
+        }
+        int requestId = buf.readInt();
+        int count = buf.readVarInt();
+        if (count < 0 || count > MAX_WHEEL_ENTRIES) {
+            return;
+        }
+        List<String> names = new ArrayList<String>(count);
+        for (int i = 0; i < count; i++) {
+            names.add(buf.readUtf(16));
+        }
+        PossessionWheelScreen.acceptEntries(requestId, names);
     }
 
     private static void queueEntityRotations(FriendlyByteBuf buf) {

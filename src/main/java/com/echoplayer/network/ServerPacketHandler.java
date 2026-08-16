@@ -1,7 +1,10 @@
 package com.echoplayer.network;
 
 import com.echoplayer.manager.EchoPlayerManager;
+import com.echoplayer.platform.Services;
+import io.netty.buffer.Unpooled;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,11 +12,20 @@ import net.minecraft.server.level.ServerPlayer;
 public class ServerPacketHandler {
     private static final int MAX_ENTITY_VIEWS = 1024;
 
-    public static void handleUnpossessPacket(ServerPlayer sender, FriendlyByteBuf buf) {
-        if (sender == null || sender.getServer() == null) {
+    public static void handlePossessionWheelRequest(ServerPlayer sender, FriendlyByteBuf buf) {
+        if (sender == null || sender.getServer() == null || buf.readableBytes() < Integer.BYTES) {
             return;
         }
-        sender.getServer().execute(() -> EchoPlayerManager.revertPossession(sender));
+        int requestId = buf.readInt();
+        ServerPlayer executor = EchoPlayerManager.getCommandExecutor(sender);
+        List<String> names = EchoPlayerManager.getManageableEchoPlayerNames(sender.getServer(), executor);
+        FriendlyByteBuf response = new FriendlyByteBuf(Unpooled.buffer());
+        response.writeInt(requestId);
+        response.writeVarInt(names.size());
+        for (String name : names) {
+            response.writeUtf(name, 16);
+        }
+        Services.PLATFORM.sendToClient(sender, NetworkPackets.POSSESSION_WHEEL_DATA_PACKET, response);
     }
 
     public static void handleViewRotationPacket(ServerPlayer sender, FriendlyByteBuf buf) {

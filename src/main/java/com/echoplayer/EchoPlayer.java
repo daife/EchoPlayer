@@ -31,7 +31,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 @Mod(value="echoplayer")
 public class EchoPlayer {
-    private static final String NETWORK_PROTOCOL_VERSION = "6";
+    private static final String NETWORK_PROTOCOL_VERSION = "7";
     public static SimpleChannel CHANNEL;
 
     public EchoPlayer() {
@@ -40,7 +40,10 @@ public class EchoPlayer {
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setupNetwork);
         DistExecutor.unsafeRunWhenOn((Dist)Dist.CLIENT, () -> () -> {
-            FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent event) -> event.register(Keybinds.UNPOSSESS_KEY));
+            FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent event) -> {
+                event.register(Keybinds.UNPOSSESS_KEY);
+                event.register(Keybinds.POSSESSION_WHEEL_KEY);
+            });
             MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent event) -> {
                 if (event.phase == TickEvent.Phase.END) {
                     Minecraft minecraft = Minecraft.getInstance();
@@ -81,6 +84,8 @@ public class EchoPlayer {
                 ClientPacketHandler.handlePossessPacket(msg.buf);
             } else if (msg.id.equals(NetworkPackets.UNPOSSESS_PACKET)) {
                 ClientPacketHandler.handleUnpossessPacket(msg.buf);
+            } else if (msg.id.equals(NetworkPackets.POSSESSION_WHEEL_DATA_PACKET)) {
+                ClientPacketHandler.handlePossessionWheelData(msg.buf);
             }
         });
     }
@@ -91,10 +96,10 @@ public class EchoPlayer {
 
     private static void handleServerPayload(Supplier<NetworkEvent.Context> ctx, ServerboundPayload msg) {
         ServerPlayer sender = ((NetworkEvent.Context)ctx.get()).getSender();
-        if (sender != null && msg.id.equals(NetworkPackets.UNPOSSESS_PACKET)) {
-            ServerPacketHandler.handleUnpossessPacket(sender, msg.buf);
-        } else if (sender != null && msg.id.equals(NetworkPackets.VIEW_ROTATION_PACKET)) {
+        if (sender != null && msg.id.equals(NetworkPackets.VIEW_ROTATION_PACKET)) {
             ServerPacketHandler.handleViewRotationPacket(sender, msg.buf);
+        } else if (sender != null && msg.id.equals(NetworkPackets.POSSESSION_WHEEL_REQUEST_PACKET)) {
+            ServerPacketHandler.handlePossessionWheelRequest(sender, msg.buf);
         }
     }
 
