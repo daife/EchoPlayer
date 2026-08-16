@@ -296,7 +296,8 @@ public final class PossessionWheelScreen extends Screen {
             int x = centerX + (int)Math.round(Math.cos(middle) * labelRadius);
             int y = centerY + (int)Math.round(Math.sin(middle) * labelRadius) - font.lineHeight / 2;
             String label = font.plainSubstrByWidth(entries.get(i), maxLabelWidth);
-            graphics.drawCenteredString(font, label, x, y, i == selectedIndex ? 0xFFFFFF : 0xD8D8D8);
+            graphics.drawCenteredString(font, label, x, y,
+                i == selectedIndex ? SELECTED_TEXT_COLOR : 0xD8D8D8);
         }
     }
 
