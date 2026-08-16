@@ -527,6 +527,15 @@ public class EchoPlayerManager {
         EchoPlayerSavedData.get(server).setAllowOtherPlayersControl(enabled);
     }
 
+    public static boolean canManageEchoPlayer(ServerPlayer player, EchoServerPlayer echoPlayer) {
+        if (player == null || echoPlayer == null) {
+            return false;
+        }
+        EchoPlayerSavedData savedData = EchoPlayerSavedData.get(player.server);
+        UUID ownerId = savedData.getOwner(echoPlayer.getUUID());
+        return player.getUUID().equals(ownerId) || savedData.isAllowOtherPlayersControl();
+    }
+
     public static List<EchoServerPlayer> getEchoPlayersByName(MinecraftServer server, String name) {
         ArrayList<EchoServerPlayer> echoPlayers = new ArrayList<EchoServerPlayer>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -609,9 +618,7 @@ public class EchoPlayerManager {
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying() || echoPlayer.linkedRealPlayer != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is not available.";
         }
-        EchoPlayerSavedData savedData = EchoPlayerSavedData.get(realPlayer.server);
-        UUID ownerId = savedData.getOwner(echoPlayer.getUUID());
-        if (!realPlayer.getUUID().equals(ownerId) && !savedData.isAllowOtherPlayersControl()) {
+        if (!canManageEchoPlayer(realPlayer, echoPlayer)) {
             return "Only the player who spawned " + echoPlayer.getGameProfile().getName() + " may control it.";
         }
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());

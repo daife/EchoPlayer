@@ -22,7 +22,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 public class EchoPlayerCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        LiteralArgumentBuilder<CommandSourceStack> command = Commands.literal("echoplayer").requires(source -> source.hasPermission(2));
+        LiteralArgumentBuilder<CommandSourceStack> command = Commands.literal("echoplayer");
 
         command.then(Commands.literal("spawn")
             .then(Commands.argument("name", StringArgumentType.word())
@@ -47,6 +47,7 @@ public class EchoPlayerCommand {
         config.then(Commands.literal("allow_other_players_control")
             .executes(EchoPlayerCommand::getAllowOtherPlayersControl)
             .then(Commands.argument("enabled", BoolArgumentType.bool())
+                .requires(source -> source.hasPermission(2))
                 .executes(EchoPlayerCommand::setAllowOtherPlayersControl)));
         command.then(config);
 
@@ -141,6 +142,19 @@ public class EchoPlayerCommand {
         MinecraftServer server = source.getServer();
         List<EchoServerPlayer> targets = EchoPlayerManager.getEchoPlayersByName(server, name);
         if (!targets.isEmpty()) {
+            ServerPlayer sender;
+            try {
+                sender = EchoPlayerManager.getCommandExecutor(source);
+            } catch (CommandSyntaxException e) {
+                source.sendFailure(Component.literal("This command must be run by a player."));
+                return 0;
+            }
+            for (EchoServerPlayer echoPlayer : targets) {
+                if (!EchoPlayerManager.canManageEchoPlayer(sender, echoPlayer)) {
+                    source.sendFailure(Component.literal("Only the player who spawned " + name + " may remove it while public access is disabled."));
+                    return 0;
+                }
+            }
             for (EchoServerPlayer echoPlayer : targets) {
                 EchoPlayerManager.removeEchoPlayer(echoPlayer);
             }
@@ -173,6 +187,9 @@ public class EchoPlayerCommand {
         if (echoPlayer == null) {
             return 1;
         }
+        if (!canManage(source, echoPlayer, "change its skin")) {
+            return 0;
+        }
         SkinManager.updateSkinAsync(server, echoPlayer, skinName, source);
         return 1;
     }
@@ -186,6 +203,9 @@ public class EchoPlayerCommand {
         if (echoPlayer == null) {
             return 1;
         }
+        if (!canManage(source, echoPlayer, "change its skin")) {
+            return 0;
+        }
         SkinManager.updateSkinFromUrlAsync(server, echoPlayer, url, source);
         return 1;
     }
@@ -198,8 +218,26 @@ public class EchoPlayerCommand {
         if (echoPlayer == null) {
             return 1;
         }
+        if (!canManage(source, echoPlayer, "clear its skin")) {
+            return 0;
+        }
         SkinManager.clearSkin(server, echoPlayer, source);
         return 1;
+    }
+
+    private static boolean canManage(CommandSourceStack source, EchoServerPlayer echoPlayer, String action) {
+        try {
+            ServerPlayer sender = EchoPlayerManager.getCommandExecutor(source);
+            if (EchoPlayerManager.canManageEchoPlayer(sender, echoPlayer)) {
+                return true;
+            }
+        } catch (CommandSyntaxException ignored) {
+            source.sendFailure(Component.literal("This command must be run by a player."));
+            return false;
+        }
+        source.sendFailure(Component.literal("Only the player who spawned " + echoPlayer.getGameProfile().getName()
+            + " may " + action + " while public access is disabled."));
+        return false;
     }
 
     private static EchoServerPlayer resolveSingleEchoPlayer(MinecraftServer server, String name, CommandSourceStack source) {
