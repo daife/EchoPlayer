@@ -31,7 +31,8 @@ public class EchoPlayerCommand {
         command.then(Commands.literal("control")
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                    EchoPlayerManager.getEchoPlayerNames(context.getSource().getServer()), builder))
+                    EchoPlayerManager.getManageableEchoPlayerNames(
+                        context.getSource().getServer(), EchoPlayerManager.getCommandExecutor(context.getSource())), builder))
                 .executes(EchoPlayerCommand::control)));
 
         command.then(Commands.literal("unpossess")
@@ -40,7 +41,8 @@ public class EchoPlayerCommand {
         command.then(Commands.literal("remove")
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                    EchoPlayerManager.getEchoPlayerNames(context.getSource().getServer()), builder))
+                    EchoPlayerManager.getManageableEchoPlayerNames(
+                        context.getSource().getServer(), EchoPlayerManager.getCommandExecutor(context.getSource())), builder))
                 .executes(EchoPlayerCommand::remove)));
 
         LiteralArgumentBuilder<CommandSourceStack> config = Commands.literal("config");
@@ -55,19 +57,22 @@ public class EchoPlayerCommand {
         skin.then(Commands.literal("set")
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                    EchoPlayerManager.getEchoPlayerNames(context.getSource().getServer()), builder))
+                    EchoPlayerManager.getManageableEchoPlayerNames(
+                        context.getSource().getServer(), EchoPlayerManager.getCommandExecutor(context.getSource())), builder))
                 .then(Commands.argument("skin_name", StringArgumentType.word())
                     .executes(EchoPlayerCommand::skinSet))));
         skin.then(Commands.literal("url")
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                    EchoPlayerManager.getEchoPlayerNames(context.getSource().getServer()), builder))
+                    EchoPlayerManager.getManageableEchoPlayerNames(
+                        context.getSource().getServer(), EchoPlayerManager.getCommandExecutor(context.getSource())), builder))
                 .then(Commands.argument("url", StringArgumentType.greedyString())
                     .executes(EchoPlayerCommand::skinUrl))));
         skin.then(Commands.literal("clear")
             .then(Commands.argument("name", StringArgumentType.word())
                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
-                    EchoPlayerManager.getEchoPlayerNames(context.getSource().getServer()), builder))
+                    EchoPlayerManager.getManageableEchoPlayerNames(
+                        context.getSource().getServer(), EchoPlayerManager.getCommandExecutor(context.getSource())), builder))
                 .executes(EchoPlayerCommand::skinClear)));
         command.then(skin);
 

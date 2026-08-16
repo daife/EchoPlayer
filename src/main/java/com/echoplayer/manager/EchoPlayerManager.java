@@ -564,6 +564,20 @@ public class EchoPlayerManager {
         return names;
     }
 
+    public static List<String> getManageableEchoPlayerNames(MinecraftServer server, ServerPlayer player) {
+        ArrayList<String> names = new ArrayList<String>();
+        for (ServerPlayer onlinePlayer : server.getPlayerList().getPlayers()) {
+            if (!(onlinePlayer instanceof EchoServerPlayer echoPlayer)) {
+                continue;
+            }
+            if (echoPlayer.linkedRealPlayer != null || !canManageEchoPlayer(player, echoPlayer)) {
+                continue;
+            }
+            names.add(echoPlayer.getGameProfile().getName());
+        }
+        return names;
+    }
+
     public static String getSpawnConflict(MinecraftServer server, GameProfile profile) {
         String name = profile.getName();
         UUID uuid = profile.getId();
