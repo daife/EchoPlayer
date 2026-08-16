@@ -12,7 +12,7 @@
                    "MixinPlayerAttack",
                    "MixinPlayerList",
                    "MixinBoatItem",
-                   "MixinEntity",
+                   "MixinLivingEntity",
                    "MixinServerEntity",
                    "MixinServerGamePacketListenerImpl",
                    "MixinServerPlayerDamage",
@@ -43,6 +43,7 @@
     "client":  [
                    "MixinMinecraft",
                    "client.MixinEntityClient",
+                   "client.MixinLivingEntityClient",
                    "client.MixinEntityRenderDispatcher",
                    "client.MixinAbstractClientPlayer",
                    "client.MixinClientPacketListener"
