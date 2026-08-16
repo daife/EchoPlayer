@@ -669,7 +669,7 @@ public class EchoPlayerManager {
             applyViewRotation(shell, bodyView);
         }
 
-        enterControlledEcho(state, echoView, passiveViews);
+        enterControlledEcho(state, echoView, passiveViews, null);
         hideControllerFromObservers(realPlayer);
         updateLogicalSleepStatus(state);
         return null;
@@ -689,8 +689,7 @@ public class EchoPlayerManager {
         ControllerState state = new ControllerState(realPlayer, echoPlayer, previousState.shellPlayer, targetSession, previousState);
         CONTROLLERS.put(realPlayer.getUUID(), state);
         targetSession.controller = state;
-        enterControlledEcho(state, echoView, passiveViews);
-        reshowEchoToReal(previousState);
+        enterControlledEcho(state, echoView, passiveViews, previousState);
         updateLogicalSleepStatus(previousState);
         updateLogicalSleepStatus(state);
         return null;
@@ -714,7 +713,8 @@ public class EchoPlayerManager {
         removeControllerState(state);
     }
 
-    private static void enterControlledEcho(ControllerState state, ViewRotation echoView, List<EntityViewRotation> passiveViews) {
+    private static void enterControlledEcho(ControllerState state, ViewRotation echoView,
+                                            List<EntityViewRotation> passiveViews, ControllerState releasedState) {
         EchoServerPlayer echoPlayer = state.echoPlayer;
         Entity echoVehicle = echoPlayer.getVehicle();
         if (echoVehicle != null) {
@@ -737,6 +737,13 @@ public class EchoPlayerManager {
         // transition. Restore every passive avatar only after the new Echo has
         // become authoritative, and send the exact same snapshots to the client.
         applyPassiveAvatarViews(passiveViews);
+        if (releasedState != null) {
+            // The released Echo is absent from this client's level while it is
+            // controlled. Recreate it before sending the rotation correction so
+            // the client applies that correction to the new entity immediately,
+            // instead of having its queued value overwritten by spawn tracking.
+            reshowEchoToReal(releasedState);
+        }
         sendPossessPacket(state, passiveViews);
         hideEchoFromReal(state);
     }
@@ -866,10 +873,10 @@ public class EchoPlayerManager {
             synchronizeViewRotation(realPlayer, shellView);
         }
         applyPassiveAvatarViews(passiveViews);
-        sendUnpossessPacket(realPlayer, passiveViews);
         if (!realPlayer.isDeadOrDying()) {
             reshowEchoToReal(state);
         }
+        sendUnpossessPacket(realPlayer, passiveViews);
         removeCrashBackup(realPlayer);
         updateLogicalSleepStatus(state);
     }
@@ -1079,10 +1086,10 @@ public class EchoPlayerManager {
                 copyEchoSharedStateToRealController(state);
                 showControllerToObservers(state.realPlayer);
                 applyPassiveAvatarViews(passiveViews);
-                sendUnpossessPacket(state.realPlayer, passiveViews);
                 if (reshowEcho) {
                     reshowEchoToReal(state);
                 }
+                sendUnpossessPacket(state.realPlayer, passiveViews);
                 if (realVehicle != null) {
                     state.realPlayer.startRiding(realVehicle, true);
                 }
