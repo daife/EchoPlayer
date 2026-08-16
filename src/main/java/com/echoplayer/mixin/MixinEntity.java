@@ -6,6 +6,7 @@ import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value={Entity.class})
@@ -16,6 +17,13 @@ public class MixinEntity {
         Object self = this;
         if (self instanceof ServerPlayer && EchoPlayerManager.isPossessing(realPlayer = (ServerPlayer)self)) {
             cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method={"push"}, at={@At(value="HEAD")}, cancellable=true)
+    private void echoplayer$disableControllerEchoPush(Entity entity, CallbackInfo ci) {
+        if (EchoPlayerManager.shouldDisableCollision((Entity)((Object)this), entity)) {
+            ci.cancel();
         }
     }
 

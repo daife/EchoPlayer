@@ -32,7 +32,8 @@
       "repairPlayerItems": "m_147092_(Lnet/minecraft/world/entity/player/Player;I)I"
     },
     "com/echoplayer/mixin/MixinEntity": {
-      "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+      "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z",
+      "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
     },
     "com/echoplayer/mixin/MixinAttributeCommand": {
       "setAttributeBase": "Lnet/minecraft/server/commands/AttributeCommand;m_245136_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;D)I",
@@ -164,7 +165,8 @@
         "repairPlayerItems": "m_147092_(Lnet/minecraft/world/entity/player/Player;I)I"
       },
       "com/echoplayer/mixin/MixinEntity": {
-        "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+        "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z",
+        "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V"
       },
       "com/echoplayer/mixin/MixinAttributeCommand": {
         "setAttributeBase": "Lnet/minecraft/server/commands/AttributeCommand;m_245136_(Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/Holder;D)I",
