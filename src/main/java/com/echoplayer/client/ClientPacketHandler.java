@@ -12,6 +12,16 @@ public class ClientPacketHandler {
         int shellId = buf.readInt();
         applyLocalPlayerRotation(buf);
         ClientPossessionData.beginPossession(echoUUID, shellId);
+        queueEntityRotations(buf);
+    }
+
+    public static void handleUnpossessPacket(FriendlyByteBuf buf) {
+        applyLocalPlayerRotation(buf);
+        ClientPossessionData.reset();
+        queueEntityRotations(buf);
+    }
+
+    private static void queueEntityRotations(FriendlyByteBuf buf) {
         int entityViewCount = buf.readVarInt();
         for (int i = 0; i < entityViewCount; i++) {
             int entityId = buf.readInt();
@@ -20,27 +30,6 @@ public class ClientPacketHandler {
             float yHeadRot = buf.readFloat();
             float yBodyRot = buf.readFloat();
             ClientPossessionData.queueEntityRotation(entityId, yRot, xRot, yHeadRot, yBodyRot);
-        }
-    }
-
-    public static void handleUnpossessPacket(FriendlyByteBuf buf) {
-        applyLocalPlayerRotation(buf);
-        boolean hasEchoRotation = buf.readBoolean();
-        int echoEntityId = -1;
-        float echoYRot = 0.0f;
-        float echoXRot = 0.0f;
-        float echoYHeadRot = 0.0f;
-        float echoYBodyRot = 0.0f;
-        if (hasEchoRotation) {
-            echoEntityId = buf.readInt();
-            echoYRot = buf.readFloat();
-            echoXRot = buf.readFloat();
-            echoYHeadRot = buf.readFloat();
-            echoYBodyRot = buf.readFloat();
-        }
-        ClientPossessionData.reset();
-        if (hasEchoRotation) {
-            ClientPossessionData.queueEntityRotation(echoEntityId, echoYRot, echoXRot, echoYHeadRot, echoYBodyRot);
         }
     }
 

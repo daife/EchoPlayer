@@ -694,7 +694,6 @@ public class EchoPlayerManager {
 
     private static void leaveControlledEcho(ControllerState state) {
         ServerPlayer realPlayer = state.realPlayer;
-        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(realPlayer);
         Entity controlledVehicle = realPlayer.getVehicle();
         if (controlledVehicle != null) {
             realPlayer.stopRiding();
@@ -708,7 +707,6 @@ public class EchoPlayerManager {
         if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
             state.echoPlayer.startRiding(controlledVehicle, true);
         }
-        applyViewRotation(state.echoPlayer, controllerView);
         removeControllerState(state);
     }
 
@@ -845,6 +843,7 @@ public class EchoPlayerManager {
             return;
         }
         ViewRotation shellView = captureViewRotation(state.shellPlayer);
+        List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(state.shellPlayer, state.shellPlayer);
         Entity realVehicle = state.shellPlayer.getVehicle();
         if (realVehicle != null) {
             state.shellPlayer.stopRiding();
@@ -853,13 +852,8 @@ public class EchoPlayerManager {
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
             synchronizeViewRotation(realPlayer, shellView);
-            sendUnpossessPacket(realPlayer, state.echoPlayer);
-            reshowEchoToReal(state);
-            removeCrashBackup(realPlayer);
         } else {
             restoreRealPlayerForRespawn(state);
-            sendUnpossessPacket(realPlayer, state.echoPlayer);
-            removeCrashBackup(realPlayer);
         }
         removeShell(state);
         showControllerToObservers(realPlayer);
@@ -867,6 +861,12 @@ public class EchoPlayerManager {
             realPlayer.startRiding(realVehicle, true);
             synchronizeViewRotation(realPlayer, shellView);
         }
+        applyPassiveAvatarViews(passiveViews);
+        sendUnpossessPacket(realPlayer, passiveViews);
+        if (!realPlayer.isDeadOrDying()) {
+            reshowEchoToReal(state);
+        }
+        removeCrashBackup(realPlayer);
         updateLogicalSleepStatus(state);
     }
 
@@ -881,10 +881,6 @@ public class EchoPlayerManager {
             Mth.wrapDegrees(yBodyRot)
         );
         CLIENT_VIEWS.put(realPlayer.getUUID(), view);
-        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
-        if (state != null) {
-            state.clientView = view;
-        }
     }
 
     public static void forgetClientView(ServerPlayer realPlayer) {
@@ -929,18 +925,18 @@ public class EchoPlayerManager {
             shellPlayer.discard();
             return;
         }
-        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(state.realPlayer);
+        List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(shellPlayer, shellPlayer);
         PendingEchoReshow pendingEchoReshow = new PendingEchoReshow(state.echoPlayer);
         commitControllerContainer(state);
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, false);
-        applyViewRotation(state.echoPlayer, controllerView);
         removeControllerState(state);
         restoreRealPlayerFromShell(state, false);
         teleportRealPlayerToShell(state);
         removeShell(state);
         showControllerToObservers(state.realPlayer);
-        sendUnpossessPacket(state.realPlayer, state.echoPlayer);
+        applyPassiveAvatarViews(passiveViews);
+        sendUnpossessPacket(state.realPlayer, passiveViews);
         PENDING_ECHO_RESHOWS.put(state.realPlayer.getUUID(), pendingEchoReshow);
         float recordedAmount = amount > 0.0f ? amount : state.realPlayer.getMaxHealth();
         state.realPlayer.getCombatTracker().recordDamage(source, recordedAmount);
@@ -959,12 +955,14 @@ public class EchoPlayerManager {
         if (session != null) {
             ControllerState state = session.controller;
             if (state != null) {
+                List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(state.shellPlayer, state.shellPlayer);
                 commitControllerContainer(state);
                 removeControllerState(state);
                 removeShell(state);
                 restoreRealPlayerFromShell(state, true);
                 showControllerToObservers(state.realPlayer);
-                sendUnpossessPacket(state.realPlayer, null);
+                applyPassiveAvatarViews(passiveViews);
+                sendUnpossessPacket(state.realPlayer, passiveViews);
                 removeCrashBackup(state.realPlayer);
             }
         }
@@ -1047,6 +1045,7 @@ public class EchoPlayerManager {
     private static void endSessionControllers(PossessionSession session, boolean reshowEcho) {
         ControllerState state = session.controller;
         if (state != null) {
+            List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(state.shellPlayer, state.shellPlayer);
             Entity echoVehicle = state.realPlayer.getVehicle();
             if (echoVehicle != null) {
                 state.realPlayer.stopRiding();
@@ -1062,7 +1061,8 @@ public class EchoPlayerManager {
                 restoreRealPlayerFromShell(state, true);
                 copyEchoSharedStateToRealController(state);
                 showControllerToObservers(state.realPlayer);
-                sendUnpossessPacket(state.realPlayer, reshowEcho ? state.echoPlayer : null);
+                applyPassiveAvatarViews(passiveViews);
+                sendUnpossessPacket(state.realPlayer, passiveViews);
                 if (reshowEcho) {
                     reshowEchoToReal(state);
                 }
@@ -1071,7 +1071,8 @@ public class EchoPlayerManager {
                 }
             } else {
                 restoreRealPlayerForRespawn(state);
-                sendUnpossessPacket(state.realPlayer, null);
+                applyPassiveAvatarViews(passiveViews);
+                sendUnpossessPacket(state.realPlayer, passiveViews);
             }
             removeCrashBackup(state.realPlayer);
         }
@@ -1348,12 +1349,14 @@ public class EchoPlayerManager {
         return clientView != null ? clientView : captureViewRotation(player);
     }
 
-    private static List<EntityViewRotation> capturePassiveAvatarViews(EchoServerPlayer shellPlayer, EchoServerPlayer targetEcho) {
+    private static List<EntityViewRotation> capturePassiveAvatarViews(EchoServerPlayer shellPlayer, ServerPlayer targetAvatar) {
         ArrayList<EntityViewRotation> views = new ArrayList<EntityViewRotation>();
-        views.add(new EntityViewRotation(shellPlayer, captureViewRotation(shellPlayer)));
+        if (shellPlayer != targetAvatar) {
+            views.add(new EntityViewRotation(shellPlayer, captureViewRotation(shellPlayer)));
+        }
         for (ServerPlayer player : shellPlayer.server.getPlayerList().getPlayers()) {
             if (!(player instanceof EchoServerPlayer echoPlayer)
-                || echoPlayer == targetEcho
+                || echoPlayer == targetAvatar
                 || echoPlayer.linkedRealPlayer != null
                 || echoPlayer.isRemoved()
                 || echoPlayer.isDeadOrDying()) {
@@ -1676,24 +1679,23 @@ public class EchoPlayerManager {
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
         writeViewRotation(buf, captureViewRotation(state.realPlayer));
+        writeEntityViewRotations(buf, passiveViews);
+        Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
+    }
+
+    private static void sendUnpossessPacket(ServerPlayer realPlayer, List<EntityViewRotation> passiveViews) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        writeViewRotation(buf, captureViewRotation(realPlayer));
+        writeEntityViewRotations(buf, passiveViews);
+        Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
+    }
+
+    private static void writeEntityViewRotations(FriendlyByteBuf buf, List<EntityViewRotation> passiveViews) {
         buf.writeVarInt(passiveViews.size());
         for (EntityViewRotation entityView : passiveViews) {
             buf.writeInt(entityView.player.getId());
             writeViewRotation(buf, entityView.view);
         }
-        Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
-    }
-
-    private static void sendUnpossessPacket(ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        writeViewRotation(buf, captureViewRotation(realPlayer));
-        boolean hasEchoRotation = echoPlayer != null && !echoPlayer.isRemoved() && !echoPlayer.isDeadOrDying();
-        buf.writeBoolean(hasEchoRotation);
-        if (hasEchoRotation) {
-            buf.writeInt(echoPlayer.getId());
-            writeViewRotation(buf, captureViewRotation(echoPlayer));
-        }
-        Services.PLATFORM.sendToClient(realPlayer, NetworkPackets.UNPOSSESS_PACKET, buf);
     }
 
     private static void writeViewRotation(FriendlyByteBuf buf, ViewRotation view) {
@@ -1762,7 +1764,6 @@ public class EchoPlayerManager {
         int lastFoodTickTimer;
         int lastFoodDataLevel;
         public float lastAbsorption;
-        ViewRotation clientView;
         int lastFireTicks;
         int lastAirSupply;
         int lastTicksFrozen;
