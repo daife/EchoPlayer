@@ -1,5 +1,6 @@
 package com.echoplayer.mixin;
 
+import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.manager.EchoPlayerManager;
 import java.util.function.BooleanSupplier;
 import net.minecraft.network.chat.ChatDecorator;
@@ -14,6 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class MixinMinecraftServer {
     @Inject(method={"tickChildren"}, at={@At(value="TAIL")})
     private void onTick(BooleanSupplier pHasTimeLeft, CallbackInfo ci) {
+        EchoPlayerControlApi.maintainLeases((MinecraftServer)(Object)this);
         EchoPlayerManager.tick();
     }
 
@@ -23,4 +25,3 @@ public class MixinMinecraftServer {
         cir.setReturnValue((sender, message) -> original.decorate(sender != null ? EchoPlayerManager.getLogicalPlayer(sender) : null, message));
     }
 }
-

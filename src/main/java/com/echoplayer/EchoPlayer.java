@@ -1,6 +1,7 @@
 package com.echoplayer;
 
 import com.echoplayer.CommonClass;
+import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.client.ClientPacketHandler;
 import com.echoplayer.client.ClientPossessionData;
 import com.echoplayer.client.Keybinds;
@@ -20,6 +21,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -38,6 +40,7 @@ public class EchoPlayer {
         CommonClass.init();
         MinecraftForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> EchoPlayerCommand.register(event.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerStopping);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setupNetwork);
         DistExecutor.unsafeRunWhenOn((Dist)Dist.CLIENT, () -> () -> {
             FMLJavaModLoadingContext.get().getModEventBus().addListener((RegisterKeyMappingsEvent event) -> {
@@ -92,6 +95,10 @@ public class EchoPlayer {
 
     private void onServerStarted(ServerStartedEvent event) {
         EchoPlayerSavedData.respawnAll(event.getServer());
+    }
+
+    private void onServerStopping(ServerStoppingEvent event) {
+        EchoPlayerControlApi.releaseServer(event.getServer());
     }
 
     private static void handleServerPayload(Supplier<NetworkEvent.Context> ctx, ServerboundPayload msg) {

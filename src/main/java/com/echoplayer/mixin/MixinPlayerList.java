@@ -1,5 +1,6 @@
 package com.echoplayer.mixin;
 
+import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.manager.EchoPlayerManager;
 import com.echoplayer.network.EchoConnection;
@@ -60,6 +61,7 @@ public class MixinPlayerList {
                 EchoServerGamePacketListenerImpl listener = new EchoServerGamePacketListenerImpl(echoNewPlayer.server, connection, echoNewPlayer);
                 echoNewPlayer.connection = listener;
                 connection.setListener(listener);
+                EchoPlayerControlApi.transferRespawnLease(echoOldPlayer, echoNewPlayer);
             }
         } else {
             EchoPlayerManager.completePendingEchoReshow(newPlayer);

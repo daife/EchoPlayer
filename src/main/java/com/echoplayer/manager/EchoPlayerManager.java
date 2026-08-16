@@ -1,6 +1,7 @@
 package com.echoplayer.manager;
 
 import com.echoplayer.Constants;
+import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.mixin.CommandSourceStackAccessor;
@@ -23,6 +24,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import net.minecraft.commands.CommandSource;
@@ -52,6 +54,7 @@ import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -630,6 +633,11 @@ public class EchoPlayerManager {
         restorePendingEchoState(echoPlayer);
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying() || echoPlayer.linkedRealPlayer != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is not available.";
+        }
+        Optional<ResourceLocation> automationController = EchoPlayerControlApi.getAutomationControllerId(echoPlayer);
+        if (automationController.isPresent()) {
+            return "EchoPlayer " + echoPlayer.getGameProfile().getName()
+                + " is currently controlled by automation (" + automationController.get() + ").";
         }
         if (!canManageEchoPlayer(realPlayer, echoPlayer)) {
             return "Only the player who spawned " + echoPlayer.getGameProfile().getName() + " may control it.";
@@ -1669,6 +1677,7 @@ public class EchoPlayerManager {
         } else if (!echoPlayer.isRemoved()) {
             echoPlayer.serverLevel().removePlayerImmediately(echoPlayer, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
         }
+        EchoPlayerControlApi.releaseUnavailableEcho(echoPlayer);
         EchoPlayerSavedData.get(server).removeEchoPlayer(echoPlayer.getUUID());
         deletePlayerDataFiles(server, echoPlayer.getUUID());
     }
