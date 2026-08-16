@@ -31,7 +31,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 @Mod(value="echoplayer")
 public class EchoPlayer {
-    private static final String NETWORK_PROTOCOL_VERSION = "5";
+    private static final String NETWORK_PROTOCOL_VERSION = "6";
     public static SimpleChannel CHANNEL;
 
     public EchoPlayer() {
