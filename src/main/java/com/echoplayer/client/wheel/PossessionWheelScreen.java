@@ -28,9 +28,9 @@ public final class PossessionWheelScreen extends Screen {
     private static final int MIN_RADIUS = 72;
     private static final int MAX_RADIUS = 120;
     private static final int WHEEL_COLOR = 0xCC20252C;
-    private static final int SELECTED_COLOR = 0xEE86D993;
-    private static final int CANCEL_COLOR = 0xEEDB8585;
     private static final int DIVIDER_COLOR = 0xDDD8DEE9;
+    private static final int SELECTED_TEXT_COLOR = 0x86D993;
+    private static final int CANCEL_TEXT_COLOR = 0xDB8585;
     private static int nextRequestId;
 
     private final int requestId;
@@ -191,11 +191,12 @@ public final class PossessionWheelScreen extends Screen {
         Component centerLabel = selectedIndex >= 0
             ? Component.literal(entries.get(selectedIndex))
             : Component.translatable("screen.echoplayer.possession_wheel.cancel");
-        graphics.drawCenteredString(font, centerLabel, centerX, centerY - font.lineHeight / 2, 0xFFFFFF);
+        int centerLabelColor = selectedIndex >= 0 ? SELECTED_TEXT_COLOR : CANCEL_TEXT_COLOR;
+        graphics.drawCenteredString(font, centerLabel, centerX, centerY - font.lineHeight / 2,
+            centerLabelColor);
     }
 
     private void renderWheel(GuiGraphics graphics) {
-        RenderSystem.disableDepthTest();
         int count = entries.size();
         double step = TWO_PI / count;
         for (int i = 0; i < count; i++) {
@@ -203,23 +204,12 @@ public final class PossessionWheelScreen extends Screen {
             drawSector(graphics.pose(), middle - step / 2.0, middle + step / 2.0,
                 innerRadius, outerRadius, WHEEL_COLOR);
         }
-
-        drawSector(graphics.pose(), 0.0, TWO_PI, 0, innerRadius, WHEEL_COLOR);
-
-        if (selectedIndex >= 0) {
-            double middle = Math.PI + selectedIndex * step;
-            drawSector(graphics.pose(), middle - step / 2.0, middle + step / 2.0,
-                innerRadius, outerRadius, SELECTED_COLOR);
-        } else {
-            drawSector(graphics.pose(), 0.0, TWO_PI, 0, innerRadius, CANCEL_COLOR);
-        }
-
         for (int i = 0; i < count; i++) {
             double boundary = Math.PI - step / 2.0 + i * step;
             drawRadialDivider(graphics.pose(), boundary);
         }
-        drawSector(graphics.pose(), 0.0, TWO_PI, innerRadius - 1, innerRadius + 1, DIVIDER_COLOR);
-        RenderSystem.enableDepthTest();
+        drawSector(graphics.pose(), 0.0, TWO_PI,
+            innerRadius - 1, innerRadius + 1, DIVIDER_COLOR);
     }
 
     private void drawSector(PoseStack poseStack, double startAngle, double endAngle,
