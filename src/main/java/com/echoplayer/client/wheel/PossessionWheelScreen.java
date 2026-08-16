@@ -27,6 +27,10 @@ public final class PossessionWheelScreen extends Screen {
     private static final double TWO_PI = Math.PI * 2.0;
     private static final int MIN_RADIUS = 72;
     private static final int MAX_RADIUS = 120;
+    private static final int WHEEL_COLOR = 0xCC20252C;
+    private static final int SELECTED_COLOR = 0xEE86D993;
+    private static final int CANCEL_COLOR = 0xEEDB8585;
+    private static final int DIVIDER_COLOR = 0xDDD8DEE9;
     private static int nextRequestId;
 
     private final int requestId;
@@ -191,17 +195,36 @@ public final class PossessionWheelScreen extends Screen {
     }
 
     private void renderWheel(GuiGraphics graphics) {
+        RenderSystem.disableDepthTest();
         int count = entries.size();
         double step = TWO_PI / count;
         for (int i = 0; i < count; i++) {
             double middle = Math.PI + i * step;
-            int color = i == selectedIndex ? 0xDDB579FF : 0xCC20252C;
-            drawSector(graphics.pose(), middle - step / 2.0, middle + step / 2.0, color);
+            drawSector(graphics.pose(), middle - step / 2.0, middle + step / 2.0,
+                innerRadius, outerRadius, WHEEL_COLOR);
         }
+
+        drawSector(graphics.pose(), 0.0, TWO_PI, 0, innerRadius, WHEEL_COLOR);
+
+        if (selectedIndex >= 0) {
+            double middle = Math.PI + selectedIndex * step;
+            drawSector(graphics.pose(), middle - step / 2.0, middle + step / 2.0,
+                innerRadius, outerRadius, SELECTED_COLOR);
+        } else {
+            drawSector(graphics.pose(), 0.0, TWO_PI, 0, innerRadius, CANCEL_COLOR);
+        }
+
+        for (int i = 0; i < count; i++) {
+            double boundary = Math.PI - step / 2.0 + i * step;
+            drawRadialDivider(graphics.pose(), boundary);
+        }
+        drawSector(graphics.pose(), 0.0, TWO_PI, innerRadius - 1, innerRadius + 1, DIVIDER_COLOR);
+        RenderSystem.enableDepthTest();
     }
 
-    private void drawSector(PoseStack poseStack, double startAngle, double endAngle, int color) {
-        int segments = Math.max(4, (int)Math.ceil((endAngle - startAngle) * outerRadius / 8.0));
+    private void drawSector(PoseStack poseStack, double startAngle, double endAngle,
+                            int sectorInnerRadius, int sectorOuterRadius, int color) {
+        int segments = Math.max(4, (int)Math.ceil((endAngle - startAngle) * sectorOuterRadius / 8.0));
         float alpha = (color >>> 24 & 0xFF) / 255.0f;
         float red = (color >>> 16 & 0xFF) / 255.0f;
         float green = (color >>> 8 & 0xFF) / 255.0f;
@@ -216,14 +239,14 @@ public final class PossessionWheelScreen extends Screen {
         for (int segment = 0; segment < segments; segment++) {
             double first = startAngle + (endAngle - startAngle) * segment / segments;
             double second = startAngle + (endAngle - startAngle) * (segment + 1) / segments;
-            float innerFirstX = centerX + (float)Math.cos(first) * innerRadius;
-            float innerFirstY = centerY + (float)Math.sin(first) * innerRadius;
-            float outerFirstX = centerX + (float)Math.cos(first) * outerRadius;
-            float outerFirstY = centerY + (float)Math.sin(first) * outerRadius;
-            float innerSecondX = centerX + (float)Math.cos(second) * innerRadius;
-            float innerSecondY = centerY + (float)Math.sin(second) * innerRadius;
-            float outerSecondX = centerX + (float)Math.cos(second) * outerRadius;
-            float outerSecondY = centerY + (float)Math.sin(second) * outerRadius;
+            float innerFirstX = centerX + (float)Math.cos(first) * sectorInnerRadius;
+            float innerFirstY = centerY + (float)Math.sin(first) * sectorInnerRadius;
+            float outerFirstX = centerX + (float)Math.cos(first) * sectorOuterRadius;
+            float outerFirstY = centerY + (float)Math.sin(first) * sectorOuterRadius;
+            float innerSecondX = centerX + (float)Math.cos(second) * sectorInnerRadius;
+            float innerSecondY = centerY + (float)Math.sin(second) * sectorInnerRadius;
+            float outerSecondX = centerX + (float)Math.cos(second) * sectorOuterRadius;
+            float outerSecondY = centerY + (float)Math.sin(second) * sectorOuterRadius;
 
             vertex(builder, matrix, innerFirstX, innerFirstY, red, green, blue, alpha);
             vertex(builder, matrix, outerFirstX, outerFirstY, red, green, blue, alpha);
@@ -232,6 +255,38 @@ public final class PossessionWheelScreen extends Screen {
             vertex(builder, matrix, outerSecondX, outerSecondY, red, green, blue, alpha);
             vertex(builder, matrix, innerSecondX, innerSecondY, red, green, blue, alpha);
         }
+        Tesselator.getInstance().end();
+        RenderSystem.disableBlend();
+    }
+
+    private void drawRadialDivider(PoseStack poseStack, double angle) {
+        double perpendicularX = -Math.sin(angle) * 0.5;
+        double perpendicularY = Math.cos(angle) * 0.5;
+        double directionX = Math.cos(angle);
+        double directionY = Math.sin(angle);
+        float innerX = centerX + (float)(directionX * innerRadius);
+        float innerY = centerY + (float)(directionY * innerRadius);
+        float outerX = centerX + (float)(directionX * outerRadius);
+        float outerY = centerY + (float)(directionY * outerRadius);
+        float alpha = (DIVIDER_COLOR >>> 24 & 0xFF) / 255.0f;
+        float red = (DIVIDER_COLOR >>> 16 & 0xFF) / 255.0f;
+        float green = (DIVIDER_COLOR >>> 8 & 0xFF) / 255.0f;
+        float blue = (DIVIDER_COLOR & 0xFF) / 255.0f;
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        Matrix4f matrix = poseStack.last().pose();
+        BufferBuilder builder = Tesselator.getInstance().getBuilder();
+        builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        vertex(builder, matrix, innerX + (float)perpendicularX, innerY + (float)perpendicularY,
+            red, green, blue, alpha);
+        vertex(builder, matrix, outerX + (float)perpendicularX, outerY + (float)perpendicularY,
+            red, green, blue, alpha);
+        vertex(builder, matrix, outerX - (float)perpendicularX, outerY - (float)perpendicularY,
+            red, green, blue, alpha);
+        vertex(builder, matrix, innerX - (float)perpendicularX, innerY - (float)perpendicularY,
+            red, green, blue, alpha);
         Tesselator.getInstance().end();
         RenderSystem.disableBlend();
     }
