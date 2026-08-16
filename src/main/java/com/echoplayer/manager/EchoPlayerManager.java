@@ -73,6 +73,7 @@ import net.minecraft.world.level.storage.LevelResource;
 public class EchoPlayerManager {
     static final Map<UUID, ControllerState> CONTROLLERS = new java.util.concurrent.ConcurrentHashMap<UUID, ControllerState>();
     static final Map<UUID, PossessionSession> SESSIONS = new java.util.concurrent.ConcurrentHashMap<UUID, PossessionSession>();
+    private static final Map<UUID, ViewRotation> CLIENT_VIEWS = new java.util.concurrent.ConcurrentHashMap<UUID, ViewRotation>();
     private static final Map<UUID, PendingEchoReshow> PENDING_ECHO_RESHOWS = new java.util.concurrent.ConcurrentHashMap<UUID, PendingEchoReshow>();
 
     static Map<UUID, ControllerState> getControllers() { return CONTROLLERS; }
@@ -626,9 +627,6 @@ public class EchoPlayerManager {
 
     public static String possess(ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
         restorePendingEchoState(echoPlayer);
-        if (CONTROLLERS.containsKey(realPlayer.getUUID())) {
-            return "You are already controlling an EchoPlayer.";
-        }
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying() || echoPlayer.linkedRealPlayer != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is not available.";
         }
@@ -638,6 +636,10 @@ public class EchoPlayerManager {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
         if (session != null && session.controller != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is already being controlled.";
+        }
+        ControllerState currentState = CONTROLLERS.get(realPlayer.getUUID());
+        if (currentState != null) {
+            return switchPossession(currentState, echoPlayer, session);
         }
         if (session == null) {
             session = new PossessionSession(echoPlayer);
@@ -655,38 +657,81 @@ public class EchoPlayerManager {
         // Treat orientation as a separate state from riding.  Mounting changes a
         // rider's position, but must never decide which direction the camera faces.
         ViewRotation bodyView = state.originalBodyView;
-        ViewRotation echoView = captureViewRotation(echoPlayer);
         Entity realVehicle = realPlayer.getVehicle();
         if (realVehicle != null) {
             realPlayer.stopRiding();
-        }
-        Entity echoVehicle = echoPlayer.getVehicle();
-        if (echoVehicle != null) {
-            echoPlayer.stopRiding();
         }
         if (realVehicle != null) {
             shell.startRiding(realVehicle, true);
             applyViewRotation(shell, bodyView);
         }
 
-        teleportRealPlayerToEcho(state, true);
-        copyEchoStateToRealController(state);
-        if (echoPlayer.isSleeping()) {
-            StateSynchronizer.transferSleepingState(echoPlayer, realPlayer);
-        }
-        if (echoVehicle != null) {
-            realPlayer.startRiding(echoVehicle, true);
-        }
-        synchronizeViewRotation(realPlayer, echoView);
-        syncControlledEchoToController(state);
-        copyRealStateToEcho(state, true);
-        StateSynchronizer.hideControllerBody(realPlayer);
-        sendPossessPacket(state);
-        hideEchoFromReal(state);
+        enterControlledEcho(state, null);
         hideControllerFromObservers(realPlayer);
         applyViewRotation(shell, bodyView);
         updateLogicalSleepStatus(state);
         return null;
+    }
+
+    private static String switchPossession(ControllerState previousState, EchoServerPlayer echoPlayer, PossessionSession targetSession) {
+        ServerPlayer realPlayer = previousState.realPlayer;
+        if (targetSession == null) {
+            targetSession = new PossessionSession(echoPlayer);
+            SESSIONS.put(echoPlayer.getUUID(), targetSession);
+        }
+
+        leaveControlledEcho(previousState);
+        ControllerState state = new ControllerState(realPlayer, echoPlayer, previousState.shellPlayer, targetSession, previousState);
+        CONTROLLERS.put(realPlayer.getUUID(), state);
+        targetSession.controller = state;
+        enterControlledEcho(state, previousState.echoPlayer);
+        reshowEchoToReal(previousState);
+        updateLogicalSleepStatus(previousState);
+        updateLogicalSleepStatus(state);
+        return null;
+    }
+
+    private static void leaveControlledEcho(ControllerState state) {
+        ServerPlayer realPlayer = state.realPlayer;
+        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(realPlayer);
+        Entity controlledVehicle = realPlayer.getVehicle();
+        if (controlledVehicle != null) {
+            realPlayer.stopRiding();
+        }
+        commitControllerContainer(state);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, !state.echoPlayer.isDeadOrDying());
+        if (realPlayer.isSleeping() && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
+            StateSynchronizer.transferSleepingState(realPlayer, state.echoPlayer);
+        }
+        if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
+            state.echoPlayer.startRiding(controlledVehicle, true);
+        }
+        applyViewRotation(state.echoPlayer, controllerView);
+        removeControllerState(state);
+    }
+
+    private static void enterControlledEcho(ControllerState state, EchoServerPlayer releasedEcho) {
+        EchoServerPlayer echoPlayer = state.echoPlayer;
+        ViewRotation echoView = captureViewRotation(echoPlayer);
+        Entity echoVehicle = echoPlayer.getVehicle();
+        if (echoVehicle != null) {
+            echoPlayer.stopRiding();
+        }
+        teleportRealPlayerToEcho(state, true);
+        copyEchoStateToRealController(state);
+        if (echoPlayer.isSleeping()) {
+            StateSynchronizer.transferSleepingState(echoPlayer, state.realPlayer);
+        }
+        if (echoVehicle != null) {
+            state.realPlayer.startRiding(echoVehicle, true);
+        }
+        synchronizeViewRotation(state.realPlayer, echoView);
+        syncControlledEchoToController(state);
+        copyRealStateToEcho(state, true);
+        StateSynchronizer.hideControllerBody(state.realPlayer);
+        sendPossessPacket(state, releasedEcho);
+        hideEchoFromReal(state);
     }
 
     public static boolean handlePossessedDamage(ServerPlayer realPlayer, DamageSource source, float amount) {
@@ -793,31 +838,15 @@ public class EchoPlayerManager {
         if (state == null) {
             return;
         }
-        // Capture the controlled view before changing either mount relation.
-        // This is the view which becomes the EchoPlayer's persistent view.
-        ViewRotation controllerView = state.clientView != null ? state.clientView : captureViewRotation(realPlayer);
-        Entity controlledVehicle = realPlayer.getVehicle();
-        if (controlledVehicle != null) {
-            realPlayer.stopRiding();
-        }
+        ViewRotation shellView = captureViewRotation(state.shellPlayer);
         Entity realVehicle = state.shellPlayer.getVehicle();
         if (realVehicle != null) {
             state.shellPlayer.stopRiding();
         }
-        commitControllerContainer(state);
-        syncControlledEchoToController(state);
-        copyRealStateToEcho(state, !state.echoPlayer.isDeadOrDying());
-        if (realPlayer.isSleeping() && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            StateSynchronizer.transferSleepingState(realPlayer, state.echoPlayer);
-        }
-        if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
-            state.echoPlayer.startRiding(controlledVehicle, true);
-        }
-        applyViewRotation(state.echoPlayer, controllerView);
-        removeControllerState(state);
+        leaveControlledEcho(state);
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
-            synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
+            synchronizeViewRotation(realPlayer, shellView);
             sendUnpossessPacket(realPlayer, state.echoPlayer);
             reshowEchoToReal(state);
             removeCrashBackup(realPlayer);
@@ -830,22 +859,30 @@ public class EchoPlayerManager {
         showControllerToObservers(realPlayer);
         if (realVehicle != null && !realPlayer.isDeadOrDying()) {
             realPlayer.startRiding(realVehicle, true);
-            synchronizeViewRotation(realPlayer, captureViewRotation(state.shellPlayer));
+            synchronizeViewRotation(realPlayer, shellView);
         }
         updateLogicalSleepStatus(state);
     }
 
-    public static void updatePossessedClientView(ServerPlayer realPlayer, float yRot, float xRot, float yHeadRot, float yBodyRot) {
-        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
-        if (state == null || !Float.isFinite(yRot) || !Float.isFinite(xRot) || !Float.isFinite(yHeadRot) || !Float.isFinite(yBodyRot)) {
+    public static void updateClientView(ServerPlayer realPlayer, float yRot, float xRot, float yHeadRot, float yBodyRot) {
+        if (!Float.isFinite(yRot) || !Float.isFinite(xRot) || !Float.isFinite(yHeadRot) || !Float.isFinite(yBodyRot)) {
             return;
         }
-        state.clientView = new ViewRotation(
+        ViewRotation view = new ViewRotation(
             Mth.wrapDegrees(yRot),
             Mth.clamp(xRot, -90.0f, 90.0f),
             Mth.wrapDegrees(yHeadRot),
             Mth.wrapDegrees(yBodyRot)
         );
+        CLIENT_VIEWS.put(realPlayer.getUUID(), view);
+        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
+        if (state != null) {
+            state.clientView = view;
+        }
+    }
+
+    public static void forgetClientView(ServerPlayer realPlayer) {
+        CLIENT_VIEWS.remove(realPlayer.getUUID());
     }
 
     public static void revertAllPossessions(EchoServerPlayer echoPlayer) {
@@ -1061,8 +1098,8 @@ public class EchoPlayerManager {
         shell.connection = shellListener;
         shellConn.setListener(shellListener);
         shell.setGameMode(realPlayer.gameMode.getGameModeForPlayer());
-        shell.setPos(realPlayer.getX(), realPlayer.getY(), realPlayer.getZ());
-        applyViewRotation(shell, captureViewRotation(realPlayer));
+        copyRidingTransform(realPlayer, shell);
+        applyViewRotation(shell, captureCurrentClientView(realPlayer));
         StateSynchronizer.copyRealStateToShell(realPlayer, shell);
         StateSynchronizer.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
@@ -1298,6 +1335,11 @@ public class EchoPlayerManager {
 
     private static ViewRotation captureViewRotation(ServerPlayer player) {
         return new ViewRotation(player.getYRot(), player.getXRot(), player.yHeadRot, player.yBodyRot);
+    }
+
+    private static ViewRotation captureCurrentClientView(ServerPlayer player) {
+        ViewRotation clientView = CLIENT_VIEWS.get(player.getUUID());
+        return clientView != null ? clientView : captureViewRotation(player);
     }
 
     private static void applyViewRotation(ServerPlayer player, ViewRotation view) {
@@ -1599,12 +1641,18 @@ public class EchoPlayerManager {
         }
     }
 
-    private static void sendPossessPacket(ControllerState state) {
+    private static void sendPossessPacket(ControllerState state, EchoServerPlayer releasedEcho) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
         writeViewRotation(buf, captureViewRotation(state.realPlayer));
         writeViewRotation(buf, state.originalBodyView);
+        boolean hasReleasedEcho = releasedEcho != null && !releasedEcho.isRemoved() && !releasedEcho.isDeadOrDying();
+        buf.writeBoolean(hasReleasedEcho);
+        if (hasReleasedEcho) {
+            buf.writeInt(releasedEcho.getId());
+            writeViewRotation(buf, captureViewRotation(releasedEcho));
+        }
         Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
     }
 
@@ -1696,14 +1744,23 @@ public class EchoPlayerManager {
         GameType lastSyncGameMode;
 
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
+            this(realPlayer, echoPlayer, shellPlayer, session, null);
+        }
+
+        ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session, ControllerState previousState) {
             this.realPlayer = realPlayer;
             this.echoPlayer = echoPlayer;
             this.shellPlayer = shellPlayer;
             this.session = session;
-            this.originalBodyView = captureViewRotation(realPlayer);
-            this.originalInventory = new ListTag();
-            realPlayer.getInventory().save(this.originalInventory);
-            this.originalGameMode = realPlayer.gameMode.getGameModeForPlayer();
+            this.originalBodyView = previousState != null ? previousState.originalBodyView : captureCurrentClientView(realPlayer);
+            if (previousState != null) {
+                this.originalInventory = previousState.originalInventory;
+                this.originalGameMode = previousState.originalGameMode;
+            } else {
+                this.originalInventory = new ListTag();
+                realPlayer.getInventory().save(this.originalInventory);
+                this.originalGameMode = realPlayer.gameMode.getGameModeForPlayer();
+            }
             int size = echoPlayer.getInventory().getContainerSize();
             this.lastInventoryState = new ItemStack[size];
             for (int i = 0; i < size; i++) {

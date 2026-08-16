@@ -33,6 +33,7 @@ public abstract class MixinServerGamePacketListenerImpl {
     @Inject(method={"onDisconnect"}, at={@At(value="HEAD")})
     private void beforeDisconnect(Component pReason, CallbackInfo ci) {
         ServerPlayer serverPlayer = this.player;
+        EchoPlayerManager.forgetClientView(serverPlayer);
         if (serverPlayer instanceof EchoServerPlayer) {
             EchoServerPlayer echoPlayer = (EchoServerPlayer)serverPlayer;
             if (echoPlayer.linkedRealPlayer == null) {

@@ -15,7 +15,23 @@ public class ClientPacketHandler {
         float shellXRot = buf.readFloat();
         float shellYHeadRot = buf.readFloat();
         float shellYBodyRot = buf.readFloat();
+        boolean hasReleasedEcho = buf.readBoolean();
+        int releasedEchoId = -1;
+        float releasedYRot = 0.0f;
+        float releasedXRot = 0.0f;
+        float releasedYHeadRot = 0.0f;
+        float releasedYBodyRot = 0.0f;
+        if (hasReleasedEcho) {
+            releasedEchoId = buf.readInt();
+            releasedYRot = buf.readFloat();
+            releasedXRot = buf.readFloat();
+            releasedYHeadRot = buf.readFloat();
+            releasedYBodyRot = buf.readFloat();
+        }
         ClientPossessionData.beginPossession(echoUUID, shellId, shellYRot, shellXRot, shellYHeadRot, shellYBodyRot);
+        if (hasReleasedEcho) {
+            ClientPossessionData.queueEntityRotation(releasedEchoId, releasedYRot, releasedXRot, releasedYHeadRot, releasedYBodyRot);
+        }
     }
 
     public static void handleUnpossessPacket(FriendlyByteBuf buf) {

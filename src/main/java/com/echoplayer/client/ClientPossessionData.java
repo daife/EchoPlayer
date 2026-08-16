@@ -47,7 +47,7 @@ public class ClientPossessionData {
     }
 
     private static void sendViewRotationIfChanged(LocalPlayer player) {
-        if (possessedUUID == null || player == null) {
+        if (player == null) {
             return;
         }
         float yRot = player.getYRot();
