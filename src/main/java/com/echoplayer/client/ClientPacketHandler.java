@@ -11,26 +11,15 @@ public class ClientPacketHandler {
         UUID echoUUID = buf.readUUID();
         int shellId = buf.readInt();
         applyLocalPlayerRotation(buf);
-        float shellYRot = buf.readFloat();
-        float shellXRot = buf.readFloat();
-        float shellYHeadRot = buf.readFloat();
-        float shellYBodyRot = buf.readFloat();
-        boolean hasReleasedEcho = buf.readBoolean();
-        int releasedEchoId = -1;
-        float releasedYRot = 0.0f;
-        float releasedXRot = 0.0f;
-        float releasedYHeadRot = 0.0f;
-        float releasedYBodyRot = 0.0f;
-        if (hasReleasedEcho) {
-            releasedEchoId = buf.readInt();
-            releasedYRot = buf.readFloat();
-            releasedXRot = buf.readFloat();
-            releasedYHeadRot = buf.readFloat();
-            releasedYBodyRot = buf.readFloat();
-        }
-        ClientPossessionData.beginPossession(echoUUID, shellId, shellYRot, shellXRot, shellYHeadRot, shellYBodyRot);
-        if (hasReleasedEcho) {
-            ClientPossessionData.queueEntityRotation(releasedEchoId, releasedYRot, releasedXRot, releasedYHeadRot, releasedYBodyRot);
+        ClientPossessionData.beginPossession(echoUUID, shellId);
+        int entityViewCount = buf.readVarInt();
+        for (int i = 0; i < entityViewCount; i++) {
+            int entityId = buf.readInt();
+            float yRot = buf.readFloat();
+            float xRot = buf.readFloat();
+            float yHeadRot = buf.readFloat();
+            float yBodyRot = buf.readFloat();
+            ClientPossessionData.queueEntityRotation(entityId, yRot, xRot, yHeadRot, yBodyRot);
         }
     }
 

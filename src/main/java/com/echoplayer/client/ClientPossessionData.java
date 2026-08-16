@@ -3,6 +3,9 @@ package com.echoplayer.client;
 import com.echoplayer.network.NetworkPackets;
 import com.echoplayer.platform.Services;
 import io.netty.buffer.Unpooled;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -14,35 +17,26 @@ import net.minecraft.world.entity.LivingEntity;
 public class ClientPossessionData {
     public static UUID possessedUUID = null;
     public static int shellEntityId = -1;
-    private static int pendingRotationEntityId = -1;
-    private static float pendingYRot;
-    private static float pendingXRot;
-    private static float pendingYHeadRot;
-    private static float pendingYBodyRot;
+    private static final Map<Integer, PendingRotation> PENDING_ENTITY_ROTATIONS = new HashMap<Integer, PendingRotation>();
     private static float lastSentYRot;
     private static float lastSentXRot;
     private static float lastSentYHeadRot;
     private static float lastSentYBodyRot;
     private static boolean hasSentViewRotation;
 
-    public static void beginPossession(UUID echoUUID, int shellId, float yRot, float xRot, float yHeadRot, float yBodyRot) {
+    public static void beginPossession(UUID echoUUID, int shellId) {
         ClientPossessionData.reset();
         possessedUUID = echoUUID;
         shellEntityId = shellId;
-        queueEntityRotation(shellId, yRot, xRot, yHeadRot, yBodyRot);
     }
 
     public static void queueEntityRotation(int entityId, float yRot, float xRot, float yHeadRot, float yBodyRot) {
-        pendingRotationEntityId = entityId;
-        pendingYRot = yRot;
-        pendingXRot = xRot;
-        pendingYHeadRot = yHeadRot;
-        pendingYBodyRot = yBodyRot;
-        applyPendingEntityRotation(Minecraft.getInstance());
+        PENDING_ENTITY_ROTATIONS.put(entityId, new PendingRotation(yRot, xRot, yHeadRot, yBodyRot));
+        applyPendingEntityRotations(Minecraft.getInstance());
     }
 
     public static void clientTick(Minecraft minecraft) {
-        applyPendingEntityRotation(minecraft);
+        applyPendingEntityRotations(minecraft);
         sendViewRotationIfChanged(minecraft.player);
     }
 
@@ -74,22 +68,41 @@ public class ClientPossessionData {
         hasSentViewRotation = true;
     }
 
-    private static void applyPendingEntityRotation(Minecraft minecraft) {
-        if (pendingRotationEntityId == -1 || minecraft.level == null) {
+    private static void applyPendingEntityRotations(Minecraft minecraft) {
+        if (PENDING_ENTITY_ROTATIONS.isEmpty() || minecraft.level == null) {
             return;
         }
-        Entity entity = minecraft.level.getEntity(pendingRotationEntityId);
-        if (!(entity instanceof LivingEntity livingEntity)) {
-            return;
+        Iterator<Map.Entry<Integer, PendingRotation>> iterator = PENDING_ENTITY_ROTATIONS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, PendingRotation> entry = iterator.next();
+            Entity entity = minecraft.level.getEntity(entry.getKey());
+            if (!(entity instanceof LivingEntity livingEntity)) {
+                continue;
+            }
+            PendingRotation rotation = entry.getValue();
+            ClientPacketHandler.applyEntityRotation(livingEntity, rotation.yRot, rotation.xRot, rotation.yHeadRot, rotation.yBodyRot);
+            iterator.remove();
         }
-        ClientPacketHandler.applyEntityRotation(livingEntity, pendingYRot, pendingXRot, pendingYHeadRot, pendingYBodyRot);
-        pendingRotationEntityId = -1;
     }
 
     public static void reset() {
         possessedUUID = null;
         shellEntityId = -1;
-        pendingRotationEntityId = -1;
+        PENDING_ENTITY_ROTATIONS.clear();
         hasSentViewRotation = false;
+    }
+
+    private static final class PendingRotation {
+        final float yRot;
+        final float xRot;
+        final float yHeadRot;
+        final float yBodyRot;
+
+        PendingRotation(float yRot, float xRot, float yHeadRot, float yBodyRot) {
+            this.yRot = yRot;
+            this.xRot = xRot;
+            this.yHeadRot = yHeadRot;
+            this.yBodyRot = yBodyRot;
+        }
     }
 }

@@ -646,8 +646,10 @@ public class EchoPlayerManager {
             SESSIONS.put(echoPlayer.getUUID(), session);
         }
         createCrashBackup(realPlayer);
-        EchoServerPlayer shell = createOriginalBodyShell(realPlayer);
-        ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session);
+        ViewRotation bodyView = captureCurrentClientView(realPlayer);
+        EchoServerPlayer shell = createOriginalBodyShell(realPlayer, bodyView);
+        List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(shell, echoPlayer);
+        ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session, null);
         ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
         if (previousState != null) {
             removeShellEntity(shell, realPlayer.server);
@@ -656,7 +658,6 @@ public class EchoPlayerManager {
         session.controller = state;
         // Treat orientation as a separate state from riding.  Mounting changes a
         // rider's position, but must never decide which direction the camera faces.
-        ViewRotation bodyView = state.originalBodyView;
         Entity realVehicle = realPlayer.getVehicle();
         if (realVehicle != null) {
             realPlayer.stopRiding();
@@ -666,15 +667,15 @@ public class EchoPlayerManager {
             applyViewRotation(shell, bodyView);
         }
 
-        enterControlledEcho(state, null);
+        enterControlledEcho(state, passiveViews);
         hideControllerFromObservers(realPlayer);
-        applyViewRotation(shell, bodyView);
         updateLogicalSleepStatus(state);
         return null;
     }
 
     private static String switchPossession(ControllerState previousState, EchoServerPlayer echoPlayer, PossessionSession targetSession) {
         ServerPlayer realPlayer = previousState.realPlayer;
+        List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(previousState.shellPlayer, echoPlayer);
         if (targetSession == null) {
             targetSession = new PossessionSession(echoPlayer);
             SESSIONS.put(echoPlayer.getUUID(), targetSession);
@@ -684,7 +685,7 @@ public class EchoPlayerManager {
         ControllerState state = new ControllerState(realPlayer, echoPlayer, previousState.shellPlayer, targetSession, previousState);
         CONTROLLERS.put(realPlayer.getUUID(), state);
         targetSession.controller = state;
-        enterControlledEcho(state, previousState.echoPlayer);
+        enterControlledEcho(state, passiveViews);
         reshowEchoToReal(previousState);
         updateLogicalSleepStatus(previousState);
         updateLogicalSleepStatus(state);
@@ -711,7 +712,7 @@ public class EchoPlayerManager {
         removeControllerState(state);
     }
 
-    private static void enterControlledEcho(ControllerState state, EchoServerPlayer releasedEcho) {
+    private static void enterControlledEcho(ControllerState state, List<EntityViewRotation> passiveViews) {
         EchoServerPlayer echoPlayer = state.echoPlayer;
         ViewRotation echoView = captureViewRotation(echoPlayer);
         Entity echoVehicle = echoPlayer.getVehicle();
@@ -730,7 +731,12 @@ public class EchoPlayerManager {
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, true);
         StateSynchronizer.hideControllerBody(state.realPlayer);
-        sendPossessPacket(state, releasedEcho);
+        // Minecraft can offset player-model rotations after the camera changes
+        // bodies, including Echo entities that were never touched by the
+        // transition. Restore every passive avatar only after the new Echo has
+        // become authoritative, and send the exact same snapshots to the client.
+        applyPassiveAvatarViews(passiveViews);
+        sendPossessPacket(state, passiveViews);
         hideEchoFromReal(state);
     }
 
@@ -1089,7 +1095,7 @@ public class EchoPlayerManager {
         }
     }
 
-    private static EchoServerPlayer createOriginalBodyShell(ServerPlayer realPlayer) {
+    private static EchoServerPlayer createOriginalBodyShell(ServerPlayer realPlayer, ViewRotation bodyView) {
         GameProfile shellProfile = new GameProfile(UUID.randomUUID(), realPlayer.getGameProfile().getName());
         EchoServerPlayer shell = new EchoServerPlayer(realPlayer.server, realPlayer.serverLevel(), shellProfile);
         shell.linkedRealPlayer = realPlayer;
@@ -1099,7 +1105,7 @@ public class EchoPlayerManager {
         shellConn.setListener(shellListener);
         shell.setGameMode(realPlayer.gameMode.getGameModeForPlayer());
         copyRidingTransform(realPlayer, shell);
-        applyViewRotation(shell, captureCurrentClientView(realPlayer));
+        applyViewRotation(shell, bodyView);
         StateSynchronizer.copyRealStateToShell(realPlayer, shell);
         StateSynchronizer.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
@@ -1340,6 +1346,30 @@ public class EchoPlayerManager {
     private static ViewRotation captureCurrentClientView(ServerPlayer player) {
         ViewRotation clientView = CLIENT_VIEWS.get(player.getUUID());
         return clientView != null ? clientView : captureViewRotation(player);
+    }
+
+    private static List<EntityViewRotation> capturePassiveAvatarViews(EchoServerPlayer shellPlayer, EchoServerPlayer targetEcho) {
+        ArrayList<EntityViewRotation> views = new ArrayList<EntityViewRotation>();
+        views.add(new EntityViewRotation(shellPlayer, captureViewRotation(shellPlayer)));
+        for (ServerPlayer player : shellPlayer.server.getPlayerList().getPlayers()) {
+            if (!(player instanceof EchoServerPlayer echoPlayer)
+                || echoPlayer == targetEcho
+                || echoPlayer.linkedRealPlayer != null
+                || echoPlayer.isRemoved()
+                || echoPlayer.isDeadOrDying()) {
+                continue;
+            }
+            views.add(new EntityViewRotation(echoPlayer, captureViewRotation(echoPlayer)));
+        }
+        return views;
+    }
+
+    private static void applyPassiveAvatarViews(List<EntityViewRotation> passiveViews) {
+        for (EntityViewRotation entityView : passiveViews) {
+            if (!entityView.player.isRemoved() && !entityView.player.isDeadOrDying()) {
+                applyViewRotation(entityView.player, entityView.view);
+            }
+        }
     }
 
     private static void applyViewRotation(ServerPlayer player, ViewRotation view) {
@@ -1641,17 +1671,15 @@ public class EchoPlayerManager {
         }
     }
 
-    private static void sendPossessPacket(ControllerState state, EchoServerPlayer releasedEcho) {
+    private static void sendPossessPacket(ControllerState state, List<EntityViewRotation> passiveViews) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeUUID(state.echoPlayer.getUUID());
         buf.writeInt(state.shellPlayer.getId());
         writeViewRotation(buf, captureViewRotation(state.realPlayer));
-        writeViewRotation(buf, state.originalBodyView);
-        boolean hasReleasedEcho = releasedEcho != null && !releasedEcho.isRemoved() && !releasedEcho.isDeadOrDying();
-        buf.writeBoolean(hasReleasedEcho);
-        if (hasReleasedEcho) {
-            buf.writeInt(releasedEcho.getId());
-            writeViewRotation(buf, captureViewRotation(releasedEcho));
+        buf.writeVarInt(passiveViews.size());
+        for (EntityViewRotation entityView : passiveViews) {
+            buf.writeInt(entityView.player.getId());
+            writeViewRotation(buf, entityView.view);
         }
         Services.PLATFORM.sendToClient(state.realPlayer, NetworkPackets.POSSESS_PACKET, buf);
     }
@@ -1724,7 +1752,6 @@ public class EchoPlayerManager {
         final EchoServerPlayer echoPlayer;
         final EchoServerPlayer shellPlayer;
         final PossessionSession session;
-        final ViewRotation originalBodyView;
         final ListTag originalInventory;
         final GameType originalGameMode;
         public ItemStack[] lastInventoryState;
@@ -1743,16 +1770,11 @@ public class EchoPlayerManager {
         boolean lastGlowing;
         GameType lastSyncGameMode;
 
-        ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session) {
-            this(realPlayer, echoPlayer, shellPlayer, session, null);
-        }
-
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session, ControllerState previousState) {
             this.realPlayer = realPlayer;
             this.echoPlayer = echoPlayer;
             this.shellPlayer = shellPlayer;
             this.session = session;
-            this.originalBodyView = previousState != null ? previousState.originalBodyView : captureCurrentClientView(realPlayer);
             if (previousState != null) {
                 this.originalInventory = previousState.originalInventory;
                 this.originalGameMode = previousState.originalGameMode;
@@ -1800,6 +1822,16 @@ public class EchoPlayerManager {
             this.xRot = xRot;
             this.yHeadRot = yHeadRot;
             this.yBodyRot = yBodyRot;
+        }
+    }
+
+    private static final class EntityViewRotation {
+        final EchoServerPlayer player;
+        final ViewRotation view;
+
+        EntityViewRotation(EchoServerPlayer player, ViewRotation view) {
+            this.player = player;
+            this.view = view;
         }
     }
 
