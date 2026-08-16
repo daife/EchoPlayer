@@ -43,6 +43,7 @@
     "client":  [
                    "MixinMinecraft",
                    "client.MixinEntityClient",
+                   "client.MixinEntityRenderDispatcher",
                    "client.MixinAbstractClientPlayer",
                    "client.MixinClientPacketListener"
                ],

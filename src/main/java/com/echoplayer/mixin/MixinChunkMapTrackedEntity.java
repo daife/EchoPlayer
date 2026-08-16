@@ -1,6 +1,5 @@
 package com.echoplayer.mixin;
 
-import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.manager.EchoPlayerManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -25,13 +24,5 @@ public class MixinChunkMapTrackedEntity {
             ci.cancel();
             return;
         }
-        entity = this.entity;
-        if (entity instanceof EchoServerPlayer) {
-            EchoServerPlayer echoPlayer = (EchoServerPlayer)entity;
-            if (EchoPlayerManager.getPossessed(viewer) == echoPlayer) {
-                ci.cancel();
-            }
-        }
     }
 }
-

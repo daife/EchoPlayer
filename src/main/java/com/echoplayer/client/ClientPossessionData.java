@@ -37,6 +37,17 @@ public class ClientPossessionData {
         applyPendingEntityRotations(Minecraft.getInstance());
     }
 
+    public static boolean isPossessedEcho(Entity entity) {
+        return entity != null && possessedUUID != null && possessedUUID.equals(entity.getUUID());
+    }
+
+    public static boolean shouldDisablePossessionPush(Entity first, Entity second) {
+        LocalPlayer localPlayer = Minecraft.getInstance().player;
+        return localPlayer != null
+            && ((first == localPlayer && isPossessedEcho(second))
+                || (second == localPlayer && isPossessedEcho(first)));
+    }
+
     public static void clientTick(Minecraft minecraft) {
         applyPendingEntityRotations(minecraft);
         sendViewRotationIfChanged(minecraft);

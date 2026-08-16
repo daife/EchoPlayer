@@ -117,7 +117,11 @@
     },
     "com/echoplayer/mixin/client/MixinEntityClient": {
       "isInvisible": "Lnet/minecraft/world/entity/Entity;m_20145_()Z",
+      "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V",
       "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+    },
+    "com/echoplayer/mixin/client/MixinEntityRenderDispatcher": {
+      "render": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114384_(Lnet/minecraft/world/entity/Entity;DDDFFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
     },
     "com/echoplayer/mixin/MixinLivingEntityEffects": {
       "tickEffects": "Lnet/minecraft/world/entity/LivingEntity;m_21217_()V"
@@ -250,7 +254,11 @@
       },
       "com/echoplayer/mixin/client/MixinEntityClient": {
         "isInvisible": "Lnet/minecraft/world/entity/Entity;m_20145_()Z",
+        "push": "Lnet/minecraft/world/entity/Entity;m_7334_(Lnet/minecraft/world/entity/Entity;)V",
         "isPickable": "Lnet/minecraft/world/entity/Entity;m_6087_()Z"
+      },
+      "com/echoplayer/mixin/client/MixinEntityRenderDispatcher": {
+        "render": "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;m_114384_(Lnet/minecraft/world/entity/Entity;DDDFFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
       },
       "com/echoplayer/mixin/MixinLivingEntityEffects": {
         "tickEffects": "Lnet/minecraft/world/entity/LivingEntity;m_21217_()V"

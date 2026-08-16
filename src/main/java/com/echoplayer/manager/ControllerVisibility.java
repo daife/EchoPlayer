@@ -21,10 +21,6 @@ import net.minecraft.world.item.ItemStack;
 
 class ControllerVisibility {
 
-    static void hideEchoFromReal(EchoPlayerManager.ControllerState state) {
-        state.realPlayer.connection.send(new ClientboundRemoveEntitiesPacket(state.echoPlayer.getId()));
-    }
-
     static void hideControllerFromViewer(ServerPlayer controller, ServerPlayer viewer) {
         if (controller == viewer || viewer instanceof EchoServerPlayer || !EchoPlayerManager.isPossessing(controller)) {
             return;
@@ -76,15 +72,6 @@ class ControllerVisibility {
         if (!equipment.isEmpty()) {
             viewer.connection.send(new ClientboundSetEquipmentPacket(controller.getId(), equipment));
         }
-    }
-
-    static void reshowEchoToReal(EchoPlayerManager.ControllerState state) {
-        ServerPlayer realPlayer = state.realPlayer;
-        EchoServerPlayer echoPlayer = state.echoPlayer;
-        if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
-            return;
-        }
-        sendEchoEntityToViewer(echoPlayer, realPlayer);
     }
 
     static void sendEchoEntityToViewer(EchoServerPlayer echoPlayer, ServerPlayer viewer) {
