@@ -13,7 +13,6 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -48,9 +47,15 @@ class ControllerVisibility {
     }
 
     static void showControllerToObservers(ServerPlayer controller) {
-        ServerLevel level = controller.serverLevel();
-        level.getChunkSource().removeEntity(controller);
-        level.getChunkSource().addEntity(controller);
+        // The controller never left the level's entity tracker; updates for
+        // observers were only suppressed while possession was active.  Once the
+        // controller state is removed, ChunkMap's next normal tracking pass will
+        // add it back to nearby viewers.
+        //
+        // Do not force that pass by removing and re-adding the ServerPlayer.
+        // ChunkMap also treats ServerPlayer as a chunk-loading client, so doing
+        // that tears down and rebuilds the controller's own chunk subscription
+        // and makes unpossess look like the world was reloaded.
     }
 
     static void sendPlayerEntityToViewer(ServerPlayer controller, ServerPlayer viewer) {

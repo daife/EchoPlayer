@@ -1550,7 +1550,19 @@ public class EchoPlayerManager {
         EchoServerPlayer shellPlayer = state.shellPlayer;
         ServerLevel shellLevel = shellPlayer.serverLevel();
         boolean requiresTerrainDownload = realPlayer.level().dimension() != shellLevel.dimension() || realPlayer.distanceToSqr(shellPlayer) > 4096.0;
-        realPlayer.teleportTo(shellLevel, shellPlayer.getX(), shellPlayer.getY(), shellPlayer.getZ(), shellPlayer.getYRot(), shellPlayer.getXRot());
+        float yRot = shellPlayer.getYRot();
+        float xRot = shellPlayer.getXRot();
+        if (realPlayer.level().dimension() != shellLevel.dimension()) {
+            // A real dimension change needs vanilla's full respawn/level switch.
+            realPlayer.teleportTo(shellLevel, shellPlayer.getX(), shellPlayer.getY(), shellPlayer.getZ(), yRot, xRot);
+        } else {
+            // Match the lightweight path used when entering or switching Echoes.
+            // ServerPlayer.teleportTo(ServerLevel, ...) also resets the camera and
+            // riding state, which makes an ordinary same-dimension release look
+            // like a heavier world transition than the other possession paths.
+            realPlayer.connection.teleport(shellPlayer.getX(), shellPlayer.getY(), shellPlayer.getZ(), yRot, xRot);
+            realPlayer.absMoveTo(shellPlayer.getX(), shellPlayer.getY(), shellPlayer.getZ(), yRot, xRot);
+        }
         if (requiresTerrainDownload) {
             StateSynchronizer.applyGhostBlockFix(realPlayer, shellLevel, shellPlayer.blockPosition().below());
         }
