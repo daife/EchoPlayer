@@ -375,19 +375,6 @@ public class EchoPlayerManager {
         }
     }
 
-    /**
-     * The hidden controller and Echo occupy the same space.  Environmental fire
-     * can therefore attempt to damage both in one tick; the Echo is canonical.
-     */
-    public static boolean shouldIgnorePossessedEnvironmentalFireDamage(ServerPlayer realPlayer, DamageSource source) {
-        ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
-        return state != null
-            && source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
-            && source.getEntity() == null
-            && source.getDirectEntity() == null
-            && state.echoPlayer.getRemainingFireTicks() > 0;
-    }
-
     public static boolean shouldCancelPossessedEchoEffectTick(EchoServerPlayer echoPlayer) {
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
         return session != null && !session.tickingCanonicalEffects;

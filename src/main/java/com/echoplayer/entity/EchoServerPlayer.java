@@ -130,7 +130,12 @@ extends ServerPlayer {
     public void tick() {
         long gameTime;
         super.tick();
-        if (!this.level().isClientSide && (this.isDeadOrDying() || this.isSleeping() || EchoPlayerManager.shouldRunPassivePhysics(this)) && this.lastPassiveTick != (gameTime = this.level().getGameTime())) {
+        // Echo connections do not run ServerGamePacketListenerImpl#tick, so the
+        // canonical body needs its player tick here even while possessed.  In
+        // particular, Entity#baseTick applies periodic burning damage from
+        // doTick(); without this branch only the hidden controller attempted it,
+        // and that duplicate environmental damage is intentionally ignored.
+        if (!this.level().isClientSide && (this.isDeadOrDying() || this.isSleeping() || EchoPlayerManager.shouldRunPassivePhysics(this) || EchoPlayerManager.isPossessed(this)) && this.lastPassiveTick != (gameTime = this.level().getGameTime())) {
             this.lastPassiveTick = gameTime;
             this.doTick();
         }
