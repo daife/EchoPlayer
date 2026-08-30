@@ -1101,6 +1101,13 @@ public class EchoPlayerManager {
 
     private static EchoServerPlayer createOriginalBodyShell(ServerPlayer realPlayer, ViewRotation bodyView) {
         GameProfile shellProfile = new GameProfile(UUID.randomUUID(), realPlayer.getGameProfile().getName());
+        // The shell needs a distinct UUID so it can coexist with the authenticated
+        // player, but it must carry the authenticated profile's signed texture
+        // properties. Vanilla happens to be fixable on the controlling client by
+        // overriding AbstractClientPlayer's skin getters; player-rendering mods may
+        // instead build their model from the shell's PlayerInfo/GameProfile and
+        // would otherwise see an unrelated default skin.
+        shellProfile.getProperties().putAll(realPlayer.getGameProfile().getProperties());
         EchoServerPlayer shell = new EchoServerPlayer(realPlayer.server, realPlayer.serverLevel(), shellProfile);
         shell.linkedRealPlayer = realPlayer;
         EchoConnection shellConn = new EchoConnection(PacketFlow.SERVERBOUND);

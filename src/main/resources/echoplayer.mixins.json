@@ -47,7 +47,9 @@
                    "client.MixinLivingEntityClient",
                    "client.MixinEntityRenderDispatcher",
                    "client.MixinAbstractClientPlayer",
-                   "client.MixinClientPacketListener"
+                   "client.MixinClientPacketListener",
+                   "client.compat.MixinLivingEntityRendererSkinLayersCompat",
+                   "client.compat.MixinPlayerRendererSkinLayersCompat"
                ],
     "server":  [
 
