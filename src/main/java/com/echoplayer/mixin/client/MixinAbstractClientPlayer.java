@@ -23,6 +23,21 @@ public class MixinAbstractClientPlayer {
         overridePlayerInfo(cir, PlayerInfo::getModelName);
     }
 
+    @Inject(method={"isCapeLoaded"}, at={@At(value="HEAD")}, cancellable=true)
+    private void overrideCapeLoaded(CallbackInfoReturnable<Boolean> cir) {
+        overridePlayerInfo(cir, PlayerInfo::isCapeLoaded);
+    }
+
+    @Inject(method={"getCloakTextureLocation"}, at={@At(value="HEAD")}, cancellable=true)
+    private void overrideCape(CallbackInfoReturnable<ResourceLocation> cir) {
+        overridePlayerInfo(cir, PlayerInfo::getCapeLocation);
+    }
+
+    @Inject(method={"getElytraTextureLocation"}, at={@At(value="HEAD")}, cancellable=true)
+    private void overrideElytra(CallbackInfoReturnable<ResourceLocation> cir) {
+        overridePlayerInfo(cir, PlayerInfo::getElytraLocation);
+    }
+
     private <T> void overridePlayerInfo(CallbackInfoReturnable<T> cir, Function<PlayerInfo, T> extractor) {
         if (ClientPossessionData.possessedUUID == null) {
             return;
