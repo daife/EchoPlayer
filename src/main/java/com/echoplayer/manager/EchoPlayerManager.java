@@ -1101,6 +1101,9 @@ public class EchoPlayerManager {
 
     private static EchoServerPlayer createOriginalBodyShell(ServerPlayer realPlayer, ViewRotation bodyView) {
         GameProfile shellProfile = new GameProfile(UUID.randomUUID(), realPlayer.getGameProfile().getName());
+        // Keep the distinct shell UUID while preserving the authenticated
+        // player's signed skin and model metadata for every observing client.
+        shellProfile.getProperties().putAll(realPlayer.getGameProfile().getProperties());
         EchoServerPlayer shell = new EchoServerPlayer(realPlayer.server, realPlayer.serverLevel(), shellProfile);
         shell.linkedRealPlayer = realPlayer;
         EchoConnection shellConn = new EchoConnection(PacketFlow.SERVERBOUND);
