@@ -1,5 +1,6 @@
 package com.echoplayer.client;
 
+import com.echoplayer.client.compat.SkinLayers3dCompat;
 import com.echoplayer.network.NetworkPackets;
 import com.echoplayer.platform.Services;
 import io.netty.buffer.Unpooled;
@@ -20,6 +21,7 @@ public class ClientPossessionData {
     public static int shellEntityId = -1;
     private static final Map<Integer, PendingRotation> PENDING_ENTITY_ROTATIONS = new HashMap<Integer, PendingRotation>();
     private static final Map<Integer, PendingRotation> LAST_SENT_ENTITY_ROTATIONS = new HashMap<Integer, PendingRotation>();
+    private static int pendingSkinLayersInvalidation = -1;
     private static float lastSentYRot;
     private static float lastSentXRot;
     private static float lastSentYHeadRot;
@@ -30,6 +32,7 @@ public class ClientPossessionData {
         ClientPossessionData.reset();
         possessedUUID = echoUUID;
         shellEntityId = shellId;
+        invalidateRemappedSkinMeshes(Minecraft.getInstance(), shellId);
     }
 
     public static void queueEntityRotation(int entityId, float yRot, float xRot, float yHeadRot, float yBodyRot) {
@@ -49,6 +52,7 @@ public class ClientPossessionData {
     }
 
     public static void clientTick(Minecraft minecraft) {
+        invalidatePendingSkinLayersMesh(minecraft);
         applyPendingEntityRotations(minecraft);
         sendViewRotationIfChanged(minecraft);
     }
@@ -143,11 +147,33 @@ public class ClientPossessionData {
     }
 
     public static void reset() {
+        Minecraft minecraft = Minecraft.getInstance();
+        SkinLayers3dCompat.invalidate(minecraft.player);
+        if (minecraft.level != null && shellEntityId != -1) {
+            SkinLayers3dCompat.invalidate(minecraft.level.getEntity(shellEntityId));
+        }
         possessedUUID = null;
         shellEntityId = -1;
+        pendingSkinLayersInvalidation = -1;
         PENDING_ENTITY_ROTATIONS.clear();
         LAST_SENT_ENTITY_ROTATIONS.clear();
         hasSentViewRotation = false;
+    }
+
+    private static void invalidateRemappedSkinMeshes(Minecraft minecraft, int shellId) {
+        SkinLayers3dCompat.invalidate(minecraft.player);
+        if (minecraft.level == null || !SkinLayers3dCompat.invalidate(minecraft.level.getEntity(shellId))) {
+            pendingSkinLayersInvalidation = shellId;
+        }
+    }
+
+    private static void invalidatePendingSkinLayersMesh(Minecraft minecraft) {
+        if (pendingSkinLayersInvalidation == -1 || minecraft.level == null) {
+            return;
+        }
+        if (SkinLayers3dCompat.invalidate(minecraft.level.getEntity(pendingSkinLayersInvalidation))) {
+            pendingSkinLayersInvalidation = -1;
+        }
     }
 
     private static final class PendingRotation {
