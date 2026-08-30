@@ -19,7 +19,7 @@
 运行任何 Gradle 命令前，必须在当前 PowerShell 会话中显式指定 JDK 17，并确认实际版本。本机已验证可用的 JDK 路径如下：
 
 ```powershell
-$jdk17 = 'C:\Program Files\Java\graalvm-jdk-17.0.12+8.1'
+$jdk17 = 'C:\Program Files\Java\graalvm-jdk-17'
 $env:JAVA_HOME = $jdk17
 $env:Path = "$jdk17\bin;$env:Path"
 java -version
