@@ -69,6 +69,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.EntityGetter;
@@ -140,6 +141,35 @@ public class EchoPlayerManager {
             }
         }
         return owner;
+    }
+
+    /** Associates a newly cast hook with both the controller input and its visible avatar. */
+    public static void linkPossessedFishingHook(FishingHook hook, Player castingPlayer) {
+        if (!(castingPlayer instanceof ServerPlayer controller)) {
+            return;
+        }
+        EchoServerPlayer echoPlayer = getPossessed(controller);
+        if (echoPlayer == null || echoPlayer.isRemoved() || echoPlayer.isDeadOrDying()) {
+            return;
+        }
+        hook.setOwner(echoPlayer);
+        controller.fishing = hook;
+        echoPlayer.fishing = hook;
+    }
+
+    /** Clears the controller-side mirror when a possessed EchoPlayer's hook is removed. */
+    public static void unlinkPossessedFishingHook(FishingHook hook) {
+        Entity owner = hook.getOwner();
+        if (!(owner instanceof EchoServerPlayer echoPlayer)) {
+            return;
+        }
+        ServerPlayer controller = getPossessor(echoPlayer);
+        if (controller != null && controller.fishing == hook) {
+            controller.fishing = null;
+        }
+        if (echoPlayer.fishing == hook) {
+            echoPlayer.fishing = null;
+        }
     }
 
     public static ServerPlayer getController(Player echoPlayer) {
