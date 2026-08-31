@@ -6,6 +6,7 @@ import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.mixin.CommandSourceStackAccessor;
 import com.echoplayer.mixin.FoodDataAccessor;
+import com.echoplayer.mixin.FishingHookInvoker;
 import com.echoplayer.mixin.LivingEntityInvoker;
 import com.echoplayer.network.EchoConnection;
 import com.echoplayer.network.EchoServerGamePacketListenerImpl;
@@ -699,6 +700,7 @@ public class EchoPlayerManager {
         }
         session.controller = state;
         transferFishingHook(realPlayer, shell);
+        transferFishingHookTargets(realPlayer, shell);
         // Treat orientation as a separate state from riding.  Mounting changes a
         // rider's position, but must never decide which direction the camera faces.
         Entity realVehicle = realPlayer.getVehicle();
@@ -896,8 +898,7 @@ public class EchoPlayerManager {
         leaveControlledEcho(state);
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
-            transferLeashHolders(state.shellPlayer, realPlayer);
-            transferFishingHook(state.shellPlayer, realPlayer);
+            restoreShellRelationships(state);
             synchronizeViewRotation(realPlayer, shellView);
         } else {
             restoreRealPlayerForRespawn(state);
@@ -1014,8 +1015,9 @@ public class EchoPlayerManager {
                     state.realPlayer, state.shellPlayer, state.shellPlayer, state.echoPlayer);
                 commitControllerContainer(state);
                 removeControllerState(state);
-                removeShell(state);
                 restoreRealPlayerFromShell(state, true);
+                restoreShellRelationships(state);
+                removeShell(state);
                 showControllerToObservers(state.realPlayer);
                 applyPassiveAvatarViews(passiveViews);
                 sendUnpossessPacket(state.realPlayer, passiveViews);
@@ -1116,9 +1118,10 @@ public class EchoPlayerManager {
             }
             commitControllerContainer(state);
             removeControllerState(state);
-            removeShell(state);
             if (!state.realPlayer.isDeadOrDying()) {
                 restoreRealPlayerFromShell(state, true);
+                restoreShellRelationships(state);
+                removeShell(state);
                 showControllerToObservers(state.realPlayer);
                 applyPassiveAvatarViews(passiveViews);
                 sendUnpossessPacket(state.realPlayer, passiveViews);
@@ -1126,6 +1129,7 @@ public class EchoPlayerManager {
                     state.realPlayer.startRiding(realVehicle, true);
                 }
             } else {
+                removeShell(state);
                 restoreRealPlayerForRespawn(state);
                 applyPassiveAvatarViews(passiveViews);
                 sendUnpossessPacket(state.realPlayer, passiveViews);
@@ -1211,6 +1215,9 @@ public class EchoPlayerManager {
         previousOwner.fishing = null;
         newOwner.fishing = hook;
         hook.setOwner(newOwner);
+        if (hook.getHookedIn() == previousOwner) {
+            ((FishingHookInvoker)hook).echoplayer$setHookedEntity(newOwner);
+        }
 
         if (hook.level() instanceof ServerLevel serverLevel) {
             serverLevel.getChunkSource().broadcast(hook, new ClientboundRemoveEntitiesPacket(hook.getId()));
@@ -1221,6 +1228,30 @@ public class EchoPlayerManager {
                     hook, new ClientboundSetEntityDataPacket(hook.getId(), entityData));
             }
         }
+    }
+
+    /** Moves hooks cast by other players that are currently attached to this body. */
+    private static void transferFishingHookTargets(Entity previousTarget, Entity newTarget) {
+        if (!(previousTarget.level() instanceof ServerLevel serverLevel)
+            || previousTarget.level() != newTarget.level()) {
+            return;
+        }
+        for (Entity entity : serverLevel.getAllEntities()) {
+            if (entity instanceof FishingHook hook && hook.getHookedIn() == previousTarget) {
+                ((FishingHookInvoker)hook).echoplayer$setHookedEntity(newTarget);
+                List<SynchedEntityData.DataValue<?>> entityData = hook.getEntityData().getNonDefaultValues();
+                if (entityData != null) {
+                    serverLevel.getChunkSource().broadcast(
+                        hook, new ClientboundSetEntityDataPacket(hook.getId(), entityData));
+                }
+            }
+        }
+    }
+
+    private static void restoreShellRelationships(ControllerState state) {
+        transferLeashHolders(state.shellPlayer, state.realPlayer);
+        transferFishingHook(state.shellPlayer, state.realPlayer);
+        transferFishingHookTargets(state.shellPlayer, state.realPlayer);
     }
 
     private static void releaseLeashHolders(ServerLevel level, Entity holder, boolean dropLead) {

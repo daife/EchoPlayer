@@ -38,6 +38,7 @@
                    "MixinChunkMapTrackedEntity",
                    "sync.MixinExperienceOrb",
                    "sync.MixinFishingHook",
+                   "FishingHookInvoker",
                    "sync.MixinMobLeash",
                    "ExperienceOrbInvoker",
                    "MixinProjectile",
