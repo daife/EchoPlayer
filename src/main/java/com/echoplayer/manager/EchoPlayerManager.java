@@ -698,6 +698,7 @@ public class EchoPlayerManager {
             return "You are already controlling an EchoPlayer.";
         }
         session.controller = state;
+        transferFishingHook(realPlayer, shell);
         // Treat orientation as a separate state from riding.  Mounting changes a
         // rider's position, but must never decide which direction the camera faces.
         Entity realVehicle = realPlayer.getVehicle();
@@ -896,6 +897,7 @@ public class EchoPlayerManager {
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
             transferLeashHolders(state.shellPlayer, realPlayer);
+            transferFishingHook(state.shellPlayer, realPlayer);
             synchronizeViewRotation(realPlayer, shellView);
         } else {
             restoreRealPlayerForRespawn(state);
@@ -1187,6 +1189,36 @@ public class EchoPlayerManager {
         for (Entity entity : serverLevel.getAllEntities()) {
             if (entity instanceof Mob mob && mob.getLeashHolder() == previousHolder) {
                 mob.setLeashedTo(newHolder, true);
+            }
+        }
+    }
+
+    /**
+     * Moves an existing cast between the authenticated body and its visible
+     * shell. FishingHook's owner is only included in its spawn packet, so the
+     * tracked entity must be respawned client-side after the owner changes.
+     */
+    private static void transferFishingHook(Player previousOwner, Player newOwner) {
+        FishingHook hook = previousOwner.fishing;
+        if (hook == null) {
+            return;
+        }
+        if (hook.isRemoved() || hook.getOwner() != previousOwner || hook.level() != newOwner.level()) {
+            previousOwner.fishing = null;
+            return;
+        }
+
+        previousOwner.fishing = null;
+        newOwner.fishing = hook;
+        hook.setOwner(newOwner);
+
+        if (hook.level() instanceof ServerLevel serverLevel) {
+            serverLevel.getChunkSource().broadcast(hook, new ClientboundRemoveEntitiesPacket(hook.getId()));
+            serverLevel.getChunkSource().broadcast(hook, hook.getAddEntityPacket());
+            List<SynchedEntityData.DataValue<?>> entityData = hook.getEntityData().getNonDefaultValues();
+            if (entityData != null) {
+                serverLevel.getChunkSource().broadcast(
+                    hook, new ClientboundSetEntityDataPacket(hook.getId(), entityData));
             }
         }
     }
