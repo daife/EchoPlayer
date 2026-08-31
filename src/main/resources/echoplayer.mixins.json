@@ -37,6 +37,7 @@
                    "AttributeMapAccessor",
                    "MixinChunkMapTrackedEntity",
                    "sync.MixinExperienceOrb",
+                   "sync.MixinMobLeash",
                    "ExperienceOrbInvoker",
                    "MixinProjectile",
                    "identity.compat.MixinTouhouLittleMaidEntityMaid"

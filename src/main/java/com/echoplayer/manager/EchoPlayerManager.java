@@ -63,6 +63,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -125,6 +126,20 @@ public class EchoPlayerManager {
     public static EchoServerPlayer getPossessed(ServerPlayer realPlayer) {
         ControllerState state = CONTROLLERS.get(realPlayer.getUUID());
         return state != null ? state.echoPlayer : null;
+    }
+
+    /**
+     * Resolves the visible avatar that should hold entity relationships created
+     * by an authenticated player while it is controlling an EchoPlayer.
+     */
+    public static Entity getVisibleRelationshipOwner(Entity owner) {
+        if (owner instanceof ServerPlayer serverPlayer) {
+            EchoServerPlayer possessed = getPossessed(serverPlayer);
+            if (possessed != null && !possessed.isRemoved() && !possessed.isDeadOrDying()) {
+                return possessed;
+            }
+        }
+        return owner;
     }
 
     public static ServerPlayer getController(Player echoPlayer) {
@@ -848,6 +863,7 @@ public class EchoPlayerManager {
         leaveControlledEcho(state);
         if (!realPlayer.isDeadOrDying()) {
             restoreRealPlayerFromShell(state, true);
+            transferLeashHolders(state.shellPlayer, realPlayer);
             synchronizeViewRotation(realPlayer, shellView);
         } else {
             restoreRealPlayerForRespawn(state);
@@ -1121,7 +1137,19 @@ public class EchoPlayerManager {
             player.connection.send(addPacket);
         }
         realPlayer.serverLevel().addFreshEntity(shell);
+        transferLeashHolders(realPlayer, shell);
         return shell;
+    }
+
+    private static void transferLeashHolders(Entity previousHolder, Entity newHolder) {
+        if (previousHolder.level() != newHolder.level() || !(previousHolder.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        for (Entity entity : serverLevel.getAllEntities()) {
+            if (entity instanceof Mob mob && mob.getLeashHolder() == previousHolder) {
+                mob.setLeashedTo(newHolder, true);
+            }
+        }
     }
 
     private static void copyRealStateToEcho(ControllerState state, boolean copyHealth) {
