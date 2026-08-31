@@ -750,6 +750,7 @@ public class EchoPlayerManager {
         if (controlledVehicle != null && !state.echoPlayer.isDeadOrDying() && !state.echoPlayer.isRemoved()) {
             state.echoPlayer.startRiding(controlledVehicle, true);
         }
+        detachControllerFishingHook(state);
         removeControllerState(state);
     }
 
@@ -767,6 +768,7 @@ public class EchoPlayerManager {
         if (echoVehicle != null) {
             state.realPlayer.startRiding(echoVehicle, true);
         }
+        synchronizeFishingRelationship(state);
         synchronizeViewRotation(state.realPlayer, echoView);
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, true);
@@ -1062,10 +1064,12 @@ public class EchoPlayerManager {
     private static void tickSession(PossessionSession session) {
         EchoServerPlayer echoPlayer = session.echoPlayer;
         if (echoPlayer.isDeadOrDying()) {
+            clearEchoRelationships(echoPlayer, true);
             ejectControllersOnDeath(echoPlayer);
             return;
         }
         if (echoPlayer.isRemoved()) {
+            clearEchoRelationships(echoPlayer, true);
             SESSIONS.remove(echoPlayer.getUUID(), session);
             endSessionControllers(session);
             return;
@@ -1088,6 +1092,7 @@ public class EchoPlayerManager {
             revertPossession(realPlayer);
             return;
         }
+        maintainControlledRelationships(state);
         syncControlledEchoToController(state);
         copyRealStateToEcho(state, true);
         synchronizePossessedFireState(state);
@@ -1172,13 +1177,66 @@ public class EchoPlayerManager {
     }
 
     private static void transferLeashHolders(Entity previousHolder, Entity newHolder) {
-        if (previousHolder.level() != newHolder.level() || !(previousHolder.level() instanceof ServerLevel serverLevel)) {
+        if (!(previousHolder.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (previousHolder.level() != newHolder.level()) {
+            releaseLeashHolders(serverLevel, previousHolder, true);
             return;
         }
         for (Entity entity : serverLevel.getAllEntities()) {
             if (entity instanceof Mob mob && mob.getLeashHolder() == previousHolder) {
                 mob.setLeashedTo(newHolder, true);
             }
+        }
+    }
+
+    private static void releaseLeashHolders(ServerLevel level, Entity holder, boolean dropLead) {
+        for (Entity entity : level.getAllEntities()) {
+            if (entity instanceof Mob mob && mob.getLeashHolder() == holder) {
+                mob.dropLeash(true, dropLead);
+            }
+        }
+    }
+
+    private static void maintainControlledRelationships(ControllerState state) {
+        ServerLevel currentLevel = state.echoPlayer.serverLevel();
+        if (state.lastRelationshipLevel != currentLevel) {
+            releaseLeashHolders(state.lastRelationshipLevel, state.echoPlayer, true);
+            state.lastRelationshipLevel = currentLevel;
+        }
+        synchronizeFishingRelationship(state);
+    }
+
+    private static void synchronizeFishingRelationship(ControllerState state) {
+        FishingHook hook = state.echoPlayer.fishing;
+        if (hook != null && (hook.isRemoved() || hook.getOwner() != state.echoPlayer || hook.level() != state.echoPlayer.level())) {
+            if (!hook.isRemoved()) {
+                hook.discard();
+            }
+            state.echoPlayer.fishing = null;
+            hook = null;
+        }
+        state.realPlayer.fishing = hook;
+    }
+
+    private static void detachControllerFishingHook(ControllerState state) {
+        FishingHook hook = state.realPlayer.fishing;
+        if (hook == state.echoPlayer.fishing || hook != null && hook.getOwner() == state.echoPlayer) {
+            state.realPlayer.fishing = null;
+        }
+    }
+
+    private static void clearEchoRelationships(EchoServerPlayer echoPlayer, boolean dropLead) {
+        FishingHook hook = echoPlayer.fishing;
+        if (hook != null) {
+            echoPlayer.fishing = null;
+            if (!hook.isRemoved()) {
+                hook.discard();
+            }
+        }
+        if (echoPlayer.level() instanceof ServerLevel serverLevel) {
+            releaseLeashHolders(serverLevel, echoPlayer, dropLead);
         }
     }
 
@@ -1797,6 +1855,9 @@ public class EchoPlayerManager {
     }
 
     private static void removeShellEntity(EchoServerPlayer shellPlayer, MinecraftServer server) {
+        if (shellPlayer.level() instanceof ServerLevel serverLevel) {
+            releaseLeashHolders(serverLevel, shellPlayer, true);
+        }
         shellPlayer.discard();
         ClientboundPlayerInfoRemovePacket removePacket = new ClientboundPlayerInfoRemovePacket(List.of(shellPlayer.getUUID()));
         ClientboundRemoveEntitiesPacket entityRemovePacket = new ClientboundRemoveEntitiesPacket(shellPlayer.getId());
@@ -1856,6 +1917,7 @@ public class EchoPlayerManager {
         int lastTicksFrozen;
         boolean lastInvisible;
         boolean lastGlowing;
+        ServerLevel lastRelationshipLevel;
         GameType lastSyncGameMode;
 
         ControllerState(ServerPlayer realPlayer, EchoServerPlayer echoPlayer, EchoServerPlayer shellPlayer, PossessionSession session, ControllerState previousState) {
@@ -1891,6 +1953,7 @@ public class EchoPlayerManager {
             this.lastTicksFrozen = echoPlayer.getTicksFrozen();
             this.lastInvisible = echoPlayer.isInvisible();
             this.lastGlowing = echoPlayer.hasGlowingTag();
+            this.lastRelationshipLevel = echoPlayer.serverLevel();
             realPlayer.setHealth(this.lastHealth);
             realPlayer.getFoodData().setFoodLevel(this.lastFoodLevel);
             realPlayer.getFoodData().setSaturation(this.lastSaturation);
