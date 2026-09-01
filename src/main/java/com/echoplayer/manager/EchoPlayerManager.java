@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
@@ -196,6 +197,23 @@ public class EchoPlayerManager {
         }
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
         return session != null && session.controller != null ? session.controller.realPlayer : null;
+    }
+
+    /**
+     * Gives passive fake-player avatars the same owner-facing response that
+     * PlayerCollars normally applies through a client-only look packet. A
+     * possessed EchoPlayer is driven by its controller instead; its packet is
+     * proxied to that controller so PlayerCollars can retain its smooth turn.
+     */
+    public static void applyPlayerCollarsClickerLook(ServerPlayer wearer, Player owner) {
+        if (!(wearer instanceof EchoServerPlayer echoPlayer)
+            || wearer.isRemoved()
+            || wearer.isDeadOrDying()
+            || wearer.level() != owner.level()
+            || getController(echoPlayer) != null) {
+            return;
+        }
+        wearer.lookAt(EntityAnchorArgument.Anchor.EYES, owner.getEyePosition());
     }
 
     public static OutgoingChatMessage createOutgoingChatMessage(PlayerChatMessage message) {

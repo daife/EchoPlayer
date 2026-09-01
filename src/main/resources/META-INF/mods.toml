@@ -4,7 +4,7 @@ license = "MIT"
 
 [[mods]]
 modId = "echoplayer"
-version = "1.0.3"
+version = "1.0.4"
 displayName = "EchoPlayer"
 logoFile = "echoplayer.png"
 authors = "Theus452"

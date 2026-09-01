@@ -59,6 +59,9 @@ extends ServerGamePacketListenerImpl {
     );
 
     private boolean shouldProxy(Packet<?> packet) {
+        if (packet.getClass().getName().equals("org.jlortiz.playercollars.PacketLookAtLerped")) {
+            return true;
+        }
         if (!PROXIED_PACKET_TYPES.contains(packet.getClass())) {
             return false;
         }

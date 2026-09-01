@@ -21,6 +21,7 @@
                    "identity.compat.MixinTouhouLittleMaidItemSmartSlab",
                    "identity.compat.MixinPlayerCollarsOwnerLookup",
                    "identity.compat.MixinPlayerCollarsCollarItem",
+                   "identity.compat.MixinPlayerCollarsClickerItem",
                    "identity.compat.MixinPlayerCollarsOwnerWrite",
                    "identity.compat.MixinPlayerCollarsLeashInteraction",
                    "PlayerAccessor",
