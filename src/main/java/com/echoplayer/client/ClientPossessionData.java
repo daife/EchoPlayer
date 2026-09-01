@@ -18,18 +18,6 @@ import net.minecraft.world.entity.LivingEntity;
 public class ClientPossessionData {
     public static UUID possessedUUID = null;
 
-    public static boolean arePossessionIdentitiesEquivalent(UUID first, Object second) {
-        if (!(second instanceof UUID secondId)) {
-            return false;
-        }
-        if (first.equals(secondId)) {
-            return true;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        return possessedUUID != null && minecraft.player != null
-            && (first.equals(possessedUUID) && secondId.equals(minecraft.player.getUUID())
-                || secondId.equals(possessedUUID) && first.equals(minecraft.player.getUUID()));
-    }
     public static int shellEntityId = -1;
     private static final Map<Integer, PendingRotation> PENDING_ENTITY_ROTATIONS = new HashMap<Integer, PendingRotation>();
     private static final Map<Integer, PendingRotation> LAST_SENT_ENTITY_ROTATIONS = new HashMap<Integer, PendingRotation>();
