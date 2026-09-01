@@ -9,6 +9,7 @@ clients.
 - Spawn and remove persistent EchoPlayers.
 - Possess an EchoPlayer and control it from your current client.
 - Keep player state, inventory, effects, movement, combat, and interactions in sync.
+- Preserve and restore Curios inventories across possession, including Player Collars ownership.
 - Change EchoPlayer skins by player name or URL.
 - Restrict control to each EchoPlayer's creator by default, with an option to allow other players.
 

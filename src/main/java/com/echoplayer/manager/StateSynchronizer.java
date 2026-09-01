@@ -61,6 +61,7 @@ public class StateSynchronizer {
 
     static void copyRealStateToShell(ServerPlayer realPlayer, EchoServerPlayer shellPlayer) {
         synchronizeInventoryContents(realPlayer, shellPlayer);
+        Services.PLATFORM.syncModdedInventories(realPlayer, shellPlayer);
         setGameModeIfNeeded(shellPlayer, realPlayer.gameMode.getGameModeForPlayer());
         synchronizeEffects(realPlayer, shellPlayer);
         synchronizeFireState(realPlayer, shellPlayer);

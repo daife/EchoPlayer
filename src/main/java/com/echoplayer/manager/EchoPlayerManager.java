@@ -98,6 +98,22 @@ public class EchoPlayerManager {
         return player.getUUID();
     }
 
+    public static UUID getLogicalOwnerUUID(UUID authenticatedPlayerId) {
+        ControllerState state = CONTROLLERS.get(authenticatedPlayerId);
+        return state != null && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying()
+            ? state.echoPlayer.getUUID() : authenticatedPlayerId;
+    }
+
+    public static String getLogicalOwnerName(String authenticatedPlayerName) {
+        for (ControllerState state : CONTROLLERS.values()) {
+            if (state.realPlayer.getName().getString().equals(authenticatedPlayerName)
+                && !state.echoPlayer.isRemoved() && !state.echoPlayer.isDeadOrDying()) {
+                return state.echoPlayer.getName().getString();
+            }
+        }
+        return authenticatedPlayerName;
+    }
+
     /**
      * Treats the authenticated player and the EchoPlayer they currently
      * possess as the same identity for ownership checks that cannot accept a
@@ -1675,6 +1691,7 @@ public class EchoPlayerManager {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
         StateSynchronizer.copyInventoryContents(shellPlayer, realPlayer);
+        Services.PLATFORM.syncModdedInventories(shellPlayer, realPlayer);
         StateSynchronizer.setGameModeIfNeeded(realPlayer, shellPlayer.gameMode.getGameModeForPlayer());
         StateSynchronizer.synchronizeEffects(shellPlayer, realPlayer);
         StateSynchronizer.synchronizeAttributes(shellPlayer, realPlayer, true);

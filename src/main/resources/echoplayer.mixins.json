@@ -19,6 +19,9 @@
                    "MixinServerPlayer",
                    "identity.MixinTamableAnimal",
                    "identity.compat.MixinTouhouLittleMaidItemSmartSlab",
+                   "identity.compat.MixinPlayerCollarsOwnerLookup",
+                   "identity.compat.MixinPlayerCollarsCollarItem",
+                   "identity.compat.MixinPlayerCollarsPacketUpdate",
                    "PlayerAccessor",
                    "MixinDamageSource",
                    "sync.MixinAttributeCommand",
@@ -50,7 +53,8 @@
                    "client.MixinLivingEntityClient",
                    "client.MixinEntityRenderDispatcher",
                    "client.MixinAbstractClientPlayer",
-                   "client.MixinClientPacketListener"
+                   "client.MixinClientPacketListener",
+                   "client.MixinPlayerCollarsDyeScreen"
                ],
     "server":  [
 

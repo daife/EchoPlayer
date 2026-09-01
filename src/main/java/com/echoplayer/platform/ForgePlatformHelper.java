@@ -5,7 +5,7 @@ import com.echoplayer.Constants;
 import com.echoplayer.platform.services.IPlatformHelper;
 import java.lang.reflect.Method;
 import java.util.Optional;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,11 +17,10 @@ import net.minecraftforge.network.PacketDistributor;
 public class ForgePlatformHelper
 implements IPlatformHelper {
     private static boolean curiosInit = false;
-    private static Object curiosHelperInstance;
-    private static Method getCuriosHandler;
-    private static Method serializeNBT;
-    private static Method deserializeNBT;
-    private static Method syncCurios;
+    private static Method getCuriosInventory;
+    private static Method resolveCurios;
+    private static Method writeCuriosTag;
+    private static Method readCuriosTag;
 
     @Override
     public String getPlatformName() {
@@ -60,37 +59,38 @@ implements IPlatformHelper {
         if (!curiosInit) {
             try {
                 Class<?> apiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
-                Method getCuriosHelper = apiClass.getMethod("getCuriosHelper", new Class[0]);
-                curiosHelperInstance = getCuriosHelper.invoke(null, new Object[0]);
-                getCuriosHandler = curiosHelperInstance.getClass().getMethod("getCuriosHandler", LivingEntity.class);
-                syncCurios = curiosHelperInstance.getClass().getMethod("syncCurios", ServerPlayer.class);
+                getCuriosInventory = apiClass.getMethod("getCuriosInventory", LivingEntity.class);
             }
-            catch (Exception e) {
-                Constants.LOG.error("Falha ao inicializar cache de reflexao Curios", (Throwable)e);
+            catch (ReflectiveOperationException e) {
+                Constants.LOG.error("Failed to initialize Curios compatibility", e);
             }
             curiosInit = true;
         }
-        if (curiosHelperInstance == null || getCuriosHandler == null) {
+        if (getCuriosInventory == null) {
             return;
         }
         try {
-            Optional sourceOpt = (Optional)getCuriosHandler.invoke(curiosHelperInstance, source);
-            Optional targetOpt = (Optional)getCuriosHandler.invoke(curiosHelperInstance, target);
+            Object sourceLazyOptional = getCuriosInventory.invoke(null, source);
+            Object targetLazyOptional = getCuriosInventory.invoke(null, target);
+            if (resolveCurios == null) {
+                resolveCurios = sourceLazyOptional.getClass().getMethod("resolve");
+            }
+            Optional<?> sourceOpt = (Optional<?>)resolveCurios.invoke(sourceLazyOptional);
+            Optional<?> targetOpt = (Optional<?>)resolveCurios.invoke(targetLazyOptional);
             if (sourceOpt.isPresent() && targetOpt.isPresent()) {
                 Object sourceHandler = sourceOpt.get();
                 Object targetHandler = targetOpt.get();
-                if (serializeNBT == null) {
-                    serializeNBT = sourceHandler.getClass().getMethod("serializeNBT", new Class[0]);
-                    deserializeNBT = targetHandler.getClass().getMethod("deserializeNBT", CompoundTag.class);
+                if (writeCuriosTag == null) {
+                    writeCuriosTag = sourceHandler.getClass().getMethod("writeTag");
+                    readCuriosTag = targetHandler.getClass().getMethod("readTag", Tag.class);
                 }
-                CompoundTag tag = (CompoundTag)serializeNBT.invoke(sourceHandler, new Object[0]);
-                deserializeNBT.invoke(targetHandler, tag);
-                syncCurios.invoke(curiosHelperInstance, target);
+                Tag tag = (Tag)writeCuriosTag.invoke(sourceHandler);
+                readCuriosTag.invoke(targetHandler, tag.copy());
             }
         }
-        catch (Exception exception) {
-            Constants.LOG.error("Falha ao sincronizar inventario Curios entre {} e {}", new Object[]{source.getGameProfile().getName(), target.getGameProfile().getName(), exception});
+        catch (ReflectiveOperationException | RuntimeException exception) {
+            Constants.LOG.error("Failed to synchronize Curios inventory between {} and {}",
+                source.getGameProfile().getName(), target.getGameProfile().getName(), exception);
         }
     }
 }
-
