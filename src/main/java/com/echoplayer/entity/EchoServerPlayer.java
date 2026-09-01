@@ -1,5 +1,6 @@
 package com.echoplayer.entity;
 
+import com.echoplayer.compat.PlayerCollarsCompat;
 import com.echoplayer.manager.EchoPlayerManager;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.MinecraftServer;
@@ -42,6 +43,9 @@ extends ServerPlayer {
         }
         EchoPlayerManager.prepareEchoForIncomingDamage(this);
         boolean damaged = super.hurt(pSource, pAmount);
+        if (damaged) {
+            PlayerCollarsCompat.applyCollarThorns(this, pSource.getEntity());
+        }
         if (damaged && !this.isDeadOrDying() && !this.isRemoved()) {
             EchoPlayerManager.recordEchoDamage(this, pSource, pAmount);
             EchoPlayerManager.afterEchoHurt(this, pSource);

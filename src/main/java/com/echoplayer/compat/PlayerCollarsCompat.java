@@ -4,11 +4,15 @@ import com.echoplayer.Constants;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Optional;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ThornsEnchantment;
 
 /**
  * Optional compatibility bridge for PlayerCollars 1.2.x.
@@ -29,6 +33,8 @@ public final class PlayerCollarsCompat {
 
     private static volatile ReflectionState reflectionState;
     private static volatile boolean lookupAttempted;
+    private static volatile CuriosState curiosState;
+    private static volatile boolean curiosLookupAttempted;
 
     private PlayerCollarsCompat() {
     }
@@ -165,6 +171,91 @@ public final class PlayerCollarsCompat {
         }
     }
 
+    /** Applies vanilla thorns behaviour for a PlayerCollars collar in the Curios necklace slot. */
+    public static void applyCollarThorns(ServerPlayer wearer, Entity attacker) {
+        if (wearer == null || attacker == null || attacker == wearer || wearer.level() != attacker.level()) {
+            return;
+        }
+        ItemStack collar = findFunctionalCollar(wearer);
+        int level = collar.getEnchantmentLevel(Enchantments.THORNS);
+        if (level <= 0 || !ThornsEnchantment.shouldHit(level, wearer.getRandom())) {
+            return;
+        }
+        attacker.hurt(wearer.damageSources().thorns(wearer), ThornsEnchantment.getDamage(level, wearer.getRandom()));
+        collar.hurtAndBreak(2, wearer, ignored -> {
+        });
+    }
+
+    private static ItemStack findFunctionalCollar(ServerPlayer wearer) {
+        CuriosState state = curiosState(wearer);
+        if (state == null) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            Object lazyOptional = state.getCuriosInventory.invoke(null, wearer);
+            Optional<?> handler = (Optional<?>)state.resolve.invoke(lazyOptional);
+            if (handler.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            Optional<?> necklace = (Optional<?>)state.getStacksHandler.invoke(handler.get(), "necklace");
+            if (necklace.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            Object stacks = state.getStacks.invoke(necklace.get());
+            int slots = (Integer)state.getSlots.invoke(stacks);
+            for (int slot = 0; slot < slots; slot++) {
+                ItemStack stack = (ItemStack)state.getStackInSlot.invoke(stacks, slot);
+                if (!stack.isEmpty() && state.collarItem.isInstance(stack.getItem())) {
+                    return stack;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            logFailure("apply PlayerCollars collar thorns", e);
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static CuriosState curiosState(Object instance) {
+        CuriosState existing = curiosState;
+        if (existing != null) {
+            return existing;
+        }
+        if (curiosLookupAttempted || instance == null) {
+            return null;
+        }
+        synchronized (PlayerCollarsCompat.class) {
+            if (curiosState != null) {
+                return curiosState;
+            }
+            if (curiosLookupAttempted) {
+                return null;
+            }
+            curiosLookupAttempted = true;
+            try {
+                ClassLoader loader = instance.getClass().getClassLoader();
+                Class<?> collarItem = Class.forName("org.jlortiz.playercollars.item.CollarItem", false, loader);
+                Class<?> curiosApi = Class.forName("top.theillusivec4.curios.api.CuriosApi", false, loader);
+                Class<?> handlerType = Class.forName("top.theillusivec4.curios.api.type.capability.ICuriosItemHandler", false, loader);
+                Class<?> stacksHandlerType = Class.forName("top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler", false, loader);
+                Class<?> dynamicStacksType = Class.forName("top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler", false, loader);
+                Method getCuriosInventory = curiosApi.getMethod("getCuriosInventory", net.minecraft.world.entity.LivingEntity.class);
+                Object lazyOptional = getCuriosInventory.invoke(null, instance);
+                Method resolve = lazyOptional.getClass().getMethod("resolve");
+                Method getStacksHandler = handlerType.getMethod("getStacksHandler", String.class);
+                Method getStacks = stacksHandlerType.getMethod("getStacks");
+                Method getSlots = dynamicStacksType.getMethod("getSlots");
+                Method getStackInSlot = dynamicStacksType.getMethod("getStackInSlot", int.class);
+                curiosState = new CuriosState(collarItem, getCuriosInventory, resolve, getStacksHandler, getStacks, getSlots, getStackInSlot);
+                return curiosState;
+            } catch (ClassNotFoundException e) {
+                return null;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                logFailure("initialize PlayerCollars collar thorns compatibility", e);
+                return null;
+            }
+        }
+    }
+
     private static ReflectionState state(Object instance) {
         ReflectionState existing = reflectionState;
         if (existing != null) {
@@ -243,6 +334,17 @@ public final class PlayerCollarsCompat {
         Method attach,
         Method detach,
         Method drop
+    ) {
+    }
+
+    private record CuriosState(
+        Class<?> collarItem,
+        Method getCuriosInventory,
+        Method resolve,
+        Method getStacksHandler,
+        Method getStacks,
+        Method getSlots,
+        Method getStackInSlot
     ) {
     }
 }
