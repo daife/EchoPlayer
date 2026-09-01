@@ -4,6 +4,7 @@ import com.echoplayer.Constants;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -24,6 +25,7 @@ public final class PlayerCollarsCompat {
     private static final String LOYALTY_FIELD = "leashplayer$loyalty";
     private static final String ATTACH_METHOD = "leashplayers$attach";
     private static final String DETACH_METHOD = "leashplayers$detach";
+    private static final String DROP_METHOD = "leashplayers$drop";
 
     private static volatile ReflectionState reflectionState;
     private static volatile boolean lookupAttempted;
@@ -117,6 +119,52 @@ public final class PlayerCollarsCompat {
         }
     }
 
+    /**
+     * Projects PlayerCollars' leash physics from the visible EchoPlayer onto
+     * the authenticated player that actually receives movement input while it
+     * is being controlled. The leash state and proxy stay on the EchoPlayer so
+     * other clients continue to see the relationship on the visible avatar.
+     */
+    public static void applyControlledLeashPhysics(ServerPlayer visibleTarget, ServerPlayer controller) {
+        if (visibleTarget == null || controller == null || visibleTarget == controller) {
+            return;
+        }
+        ReflectionState state = state(visibleTarget);
+        if (state == null || !state.leashImpl.isInstance(visibleTarget)) {
+            return;
+        }
+        try {
+            Object holderValue = state.holder.get(visibleTarget);
+            if (!(holderValue instanceof Entity holder) || holder.level() != controller.level()) {
+                return;
+            }
+
+            int loyalty = state.loyalty.getInt(visibleTarget);
+            float distance = controller.distanceTo(holder);
+            if (distance < 4 - loyalty) {
+                return;
+            }
+            if (distance > 10.0f - loyalty) {
+                state.detach.invoke(visibleTarget);
+                state.drop.invoke(visibleTarget);
+                return;
+            }
+
+            double dx = (holder.getX() - controller.getX()) / distance;
+            double dy = (holder.getY() - controller.getY()) / distance;
+            double dz = (holder.getZ() - controller.getZ()) / distance;
+            double factor = 0.4d + 0.1d * loyalty;
+            controller.push(
+                Math.copySign(dx * dx * factor, dx),
+                Math.copySign(dy * dy * factor, dy),
+                Math.copySign(dz * dz * factor, dz));
+            controller.connection.send(new ClientboundSetEntityMotionPacket(controller));
+            controller.hasImpulse = false;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            logFailure("apply PlayerCollars controlled leash physics", e);
+        }
+    }
+
     private static ReflectionState state(Object instance) {
         ReflectionState existing = reflectionState;
         if (existing != null) {
@@ -141,13 +189,15 @@ public final class PlayerCollarsCompat {
                 Field loyalty = findField(ServerPlayer.class, LOYALTY_FIELD);
                 Method attach = findMethod(ServerPlayer.class, ATTACH_METHOD, Entity.class);
                 Method detach = findMethod(ServerPlayer.class, DETACH_METHOD);
+                Method drop = findMethod(ServerPlayer.class, DROP_METHOD);
 
                 holder.setAccessible(true);
                 lastAge.setAccessible(true);
                 loyalty.setAccessible(true);
                 attach.setAccessible(true);
                 detach.setAccessible(true);
-                reflectionState = new ReflectionState(leashImpl, holder, lastAge, loyalty, attach, detach);
+                drop.setAccessible(true);
+                reflectionState = new ReflectionState(leashImpl, holder, lastAge, loyalty, attach, detach, drop);
                 return reflectionState;
             } catch (ClassNotFoundException e) {
                 // PlayerCollars is optional.
@@ -191,7 +241,8 @@ public final class PlayerCollarsCompat {
         Field lastAge,
         Field loyalty,
         Method attach,
-        Method detach
+        Method detach,
+        Method drop
     ) {
     }
 }

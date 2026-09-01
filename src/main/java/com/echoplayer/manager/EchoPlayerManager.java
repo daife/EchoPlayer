@@ -1124,6 +1124,7 @@ public class EchoPlayerManager {
         }
         maintainControlledRelationships(state);
         syncControlledEchoToController(state);
+        PlayerCollarsCompat.applyControlledLeashPhysics(echoPlayer, realPlayer);
         copyRealStateToEcho(state, true);
         synchronizePossessedFireState(state);
         StateSynchronizer.hideControllerBody(realPlayer);
