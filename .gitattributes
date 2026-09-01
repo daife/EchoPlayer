@@ -1,1 +1,23 @@
-* text=auto
+# 仓库内所有文本文件统一使用 LF
+* text=auto eol=lf
+
+# 常见脚本明确 LF
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# Windows 专用脚本可以保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件禁止 Git 做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.jar binary
+*.zip binary
+*.7z binary
+*.pdf binary

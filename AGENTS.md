@@ -46,3 +46,8 @@ java -version
 - 保留 `echoplayer.mixins.json`、`echoplayer.forge.mixins.json`、refmap 配置及 MixinExtras Jar-in-Jar 资源，除非对应迁移已经完成并通过构建验证。
 - 不要提交 `build/`、`.gradle/`、`run/` 等生成目录。
 - 不要删除用户全局 Gradle 缓存。只有用户明确要求且已确认精确版本目录时，才可删除特定旧 Forge 缓存；Gradle 缓存可通过后续构建重新下载。
+
+## 换行符规范
+- 仓库一律使用 LF；仅 `.bat` 和 `.cmd` Windows 脚本明确使用 CRLF。
+- 换行规则由根目录 `.gitattributes` 固化，编辑器和 AI 工具写文件时遵循根目录 `.editorconfig`。
+- 修改换行规则后，使用 `git add --renormalize .` 检查并清洗已跟踪文件，避免提交换行符噪声。
