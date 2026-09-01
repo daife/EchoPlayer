@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Makes PlayerCollars' direct holder == player detach check possession-aware. */
+/** Makes PlayerCollars 1.2.6's direct holder == player detach check possession-aware. */
 @Mixin(Player.class)
 public abstract class MixinPlayerCollarsLeashInteraction {
     @Inject(method = "interactOn", at = @At("HEAD"))

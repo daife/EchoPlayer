@@ -712,8 +712,8 @@ public class EchoPlayerManager {
         ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session, null);
         ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
         if (previousState != null) {
-            // createOriginalBodyShell already moved holder relationships to this
-            // temporary shell, so put them back before discarding it.
+            // createOriginalBodyShell already moved holder relationships to the
+            // temporary shell, so restore them before discarding it.
             transferLeashHolders(shell, realPlayer);
             removeShellEntity(shell, realPlayer.server);
             return "You are already controlling an EchoPlayer.";
@@ -775,10 +775,10 @@ public class EchoPlayerManager {
             state.echoPlayer.startRiding(controlledVehicle, true);
         }
         detachControllerFishingHook(state);
-        // PlayerCollars initially receives the authenticated controller from
-        // Player.interactOn. Its proxy is already projected to the Echo by
-        // MixinMobLeash; normalize any not-yet-reconciled private holder before
-        // removing the possession mapping so an immediate unpossess is safe.
+        // A just-created PlayerCollars link initially stores the authenticated
+        // controller while its hidden proxy is already projected to the Echo by
+        // MixinMobLeash. Normalize that private holder before removing the
+        // possession mapping, including the immediate-Unpossess case.
         PlayerCollarsCompat.transferHolderReferences(realPlayer.serverLevel(), realPlayer, state.echoPlayer);
         removeControllerState(state);
     }

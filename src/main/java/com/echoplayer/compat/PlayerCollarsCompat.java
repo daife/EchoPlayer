@@ -10,13 +10,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Optional compatibility bridge for PlayerCollars' player leash implementation.
+ * Optional compatibility bridge for PlayerCollars 1.2.x.
  *
- * <p>PlayerCollars stores its logical leash holder in fields mixed directly into
- * {@link ServerPlayer}; that state is separate from the vanilla leash holder on
- * its invisible proxy mob. EchoPlayer replaces the authenticated body with a
- * visible shell while possessed, so both pieces of state must move together.
- * Reflection keeps PlayerCollars an optional dependency.</p>
+ * <p>The released 1.2.6 Forge jar stores leash state directly on the target
+ * ServerPlayer in mixin-added fields and separately mirrors the holder on a
+ * hidden LeashProxyEntity. EchoPlayer must migrate both pieces of state when
+ * the authenticated body is replaced by a visible Echo/Shell.</p>
  */
 public final class PlayerCollarsCompat {
     private static final String LEASH_IMPL = "org.jlortiz.playercollars.leash.LeashImpl";
@@ -33,12 +32,12 @@ public final class PlayerCollarsCompat {
     }
 
     /**
-     * PlayerCollars compares its private holder field directly with the
-     * authenticated player passed to Player.interactOn. While possessed, the
-     * private holder normally points at the visible Echo instead. Just before a
-     * valid detach interaction, temporarily expose the authenticated controller
-     * in that private comparison field. The proxy remains attached to the Echo,
-     * so no visible relationship changes before PlayerCollars performs detach().
+     * PlayerCollars 1.2.6 detaches only when its private holder field is the
+     * exact Player object passed to Player.interactOn. During possession the
+     * visible leash holder is the controlled EchoPlayer instead. Just before
+     * PlayerCollars' RETURN injector executes, temporarily expose the real
+     * controller for that comparison. The proxy remains attached to the Echo
+     * until PlayerCollars itself calls detach(), so rendering never jumps.
      */
     public static void prepareDetachInteraction(Player target, ServerPlayer controller, Player visibleActor) {
         if (!(target instanceof ServerPlayer) || controller == null || visibleActor == null || controller == visibleActor) {
@@ -62,11 +61,7 @@ public final class PlayerCollarsCompat {
         }
     }
 
-    /**
-     * Replaces holder references on every PlayerCollars-leashed player in the
-     * level. This is the PlayerCollars equivalent of moving vanilla Mob leash
-     * holders from body -> shell or shell -> body.
-     */
+    /** Moves every PlayerCollars private holder reference old -> new. */
     public static void transferHolderReferences(ServerLevel level, Entity previousHolder, Entity newHolder) {
         if (level == null || previousHolder == null || newHolder == null || previousHolder == newHolder) {
             return;
@@ -91,10 +86,9 @@ public final class PlayerCollarsCompat {
     }
 
     /**
-     * Moves the leash state where the body itself is the leashed target. A
-     * PlayerCollars proxy permanently follows the target passed to its
-     * constructor, so the old proxy must be detached without dropping a lead
-     * and a new proxy must be attached to the replacement body.
+     * Moves PlayerCollars state when the replaced player itself is the leashed
+     * target. The 1.2.6 proxy permanently follows the target passed to its
+     * constructor, so that proxy must be recreated on the replacement body.
      */
     public static void transferLeashedTarget(ServerPlayer previousTarget, ServerPlayer newTarget) {
         if (previousTarget == null || newTarget == null || previousTarget == newTarget) {
@@ -111,7 +105,7 @@ public final class PlayerCollarsCompat {
             }
             int loyalty = state.loyalty.getInt(previousTarget);
 
-            // detach() removes the old proxy but deliberately does not drop a lead.
+            // PlayerCollars detach() removes its hidden proxy but does not drop a lead.
             state.detach.invoke(previousTarget);
             if (state.holder.get(newTarget) instanceof Entity) {
                 state.detach.invoke(newTarget);
@@ -124,8 +118,9 @@ public final class PlayerCollarsCompat {
     }
 
     private static ReflectionState state(Object instance) {
-        if (reflectionState != null) {
-            return reflectionState;
+        ReflectionState existing = reflectionState;
+        if (existing != null) {
+            return existing;
         }
         if (lookupAttempted || instance == null) {
             return null;
@@ -141,12 +136,11 @@ public final class PlayerCollarsCompat {
             try {
                 ClassLoader loader = instance.getClass().getClassLoader();
                 Class<?> leashImpl = Class.forName(LEASH_IMPL, false, loader);
-                Class<?> serverPlayerClass = ServerPlayer.class;
-                Field holder = findField(serverPlayerClass, HOLDER_FIELD);
-                Field lastAge = findField(serverPlayerClass, LAST_AGE_FIELD);
-                Field loyalty = findField(serverPlayerClass, LOYALTY_FIELD);
-                Method attach = findMethod(serverPlayerClass, ATTACH_METHOD, Entity.class);
-                Method detach = findMethod(serverPlayerClass, DETACH_METHOD);
+                Field holder = findField(ServerPlayer.class, HOLDER_FIELD);
+                Field lastAge = findField(ServerPlayer.class, LAST_AGE_FIELD);
+                Field loyalty = findField(ServerPlayer.class, LOYALTY_FIELD);
+                Method attach = findMethod(ServerPlayer.class, ATTACH_METHOD, Entity.class);
+                Method detach = findMethod(ServerPlayer.class, DETACH_METHOD);
 
                 holder.setAccessible(true);
                 lastAge.setAccessible(true);
@@ -156,7 +150,7 @@ public final class PlayerCollarsCompat {
                 reflectionState = new ReflectionState(leashImpl, holder, lastAge, loyalty, attach, detach);
                 return reflectionState;
             } catch (ClassNotFoundException e) {
-                // PlayerCollars is optional; absence is expected.
+                // PlayerCollars is optional.
                 return null;
             } catch (ReflectiveOperationException | RuntimeException e) {
                 logFailure("initialize PlayerCollars compatibility", e);

@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /** Makes fence binding search for mobs held by the visible possessed Echo. */
 @Mixin(LeadItem.class)
-public class MixinLeadItem {
+public abstract class MixinLeadItem {
     @ModifyVariable(method = "bindPlayerMobs", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private static Player echoplayer$useVisibleLeashHolder(Player player) {
         Entity visible = EchoPlayerManager.getVisibleRelationshipOwner(player);
