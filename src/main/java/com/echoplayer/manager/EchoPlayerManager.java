@@ -1,6 +1,7 @@
 package com.echoplayer.manager;
 
 import com.echoplayer.Constants;
+import com.echoplayer.compat.PlayerCollarsCompat;
 import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
@@ -711,9 +712,13 @@ public class EchoPlayerManager {
         ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session, null);
         ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
         if (previousState != null) {
+            // createOriginalBodyShell already moved holder relationships to this
+            // temporary shell, so put them back before discarding it.
+            transferLeashHolders(shell, realPlayer);
             removeShellEntity(shell, realPlayer.server);
             return "You are already controlling an EchoPlayer.";
         }
+        PlayerCollarsCompat.transferLeashedTarget(realPlayer, shell);
         session.controller = state;
         transferFishingHook(realPlayer, shell);
         transferFishingHookTargets(realPlayer, shell);
@@ -770,6 +775,11 @@ public class EchoPlayerManager {
             state.echoPlayer.startRiding(controlledVehicle, true);
         }
         detachControllerFishingHook(state);
+        // PlayerCollars initially receives the authenticated controller from
+        // Player.interactOn. Its proxy is already projected to the Echo by
+        // MixinMobLeash; normalize any not-yet-reconciled private holder before
+        // removing the possession mapping so an immediate unpossess is safe.
+        PlayerCollarsCompat.transferHolderReferences(realPlayer.serverLevel(), realPlayer, state.echoPlayer);
         removeControllerState(state);
     }
 
@@ -1211,6 +1221,7 @@ public class EchoPlayerManager {
                 mob.setLeashedTo(newHolder, true);
             }
         }
+        PlayerCollarsCompat.transferHolderReferences(serverLevel, previousHolder, newHolder);
     }
 
     /**
@@ -1266,6 +1277,7 @@ public class EchoPlayerManager {
 
     private static void restoreShellRelationships(ControllerState state) {
         transferLeashHolders(state.shellPlayer, state.realPlayer);
+        PlayerCollarsCompat.transferLeashedTarget(state.shellPlayer, state.realPlayer);
         transferFishingHook(state.shellPlayer, state.realPlayer);
         transferFishingHookTargets(state.shellPlayer, state.realPlayer);
     }

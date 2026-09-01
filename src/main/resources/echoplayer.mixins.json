@@ -22,6 +22,7 @@
                    "identity.compat.MixinPlayerCollarsOwnerLookup",
                    "identity.compat.MixinPlayerCollarsCollarItem",
                    "identity.compat.MixinPlayerCollarsOwnerWrite",
+                   "identity.compat.MixinPlayerCollarsLeashInteraction",
                    "PlayerAccessor",
                    "MixinDamageSource",
                    "sync.MixinAttributeCommand",
@@ -43,6 +44,8 @@
                    "sync.MixinFishingHook",
                    "FishingHookInvoker",
                    "sync.MixinMobLeash",
+                   "sync.MixinMobLeashInteraction",
+                   "sync.MixinLeadItem",
                    "ExperienceOrbInvoker",
                    "MixinProjectile",
                    "identity.compat.MixinTouhouLittleMaidEntityMaid"
