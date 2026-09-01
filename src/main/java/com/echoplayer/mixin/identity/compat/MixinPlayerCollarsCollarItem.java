@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(targets = "org.jlortiz.playercollars.item.CollarItem", remap = false)
 public abstract class MixinPlayerCollarsCollarItem {
     @Redirect(
-        method = "lambda$curioTick$0(Lnet/minecraft/world/entity/LivingEntity;Ltop/theillusivec4/curios/api/SlotResult;)V",
+        method = "lambda$curioTick$*",
         at = @At(value = "INVOKE", target = "Ljava/util/UUID;equals(Ljava/lang/Object;)Z", remap = false),
+        require = 0,
         remap = false
     )
     private boolean echoplayer$acceptPossessionIdentity(UUID storedOwner, Object wearerId) {

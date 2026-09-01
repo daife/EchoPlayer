@@ -21,7 +21,7 @@
                    "identity.compat.MixinTouhouLittleMaidItemSmartSlab",
                    "identity.compat.MixinPlayerCollarsOwnerLookup",
                    "identity.compat.MixinPlayerCollarsCollarItem",
-                   "identity.compat.MixinPlayerCollarsPacketUpdate",
+                   "identity.compat.MixinPlayerCollarsOwnerWrite",
                    "PlayerAccessor",
                    "MixinDamageSource",
                    "sync.MixinAttributeCommand",
