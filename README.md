@@ -17,18 +17,21 @@ The root command is `/echoplayer`.
 
 ## Automation control API
 
-Add-on mods must acquire an exclusive automation lease before controlling an
-EchoPlayer. `EchoPlayerControlApi.tryAcquireAutomation(...)` rejects a target
-that is possessed, unavailable, or already leased. While the lease is active,
-EchoPlayer rejects possession of that target. Close the returned
-`AutomationControlLease` on the Minecraft server thread on every normal exit
-path.
+Add-on mods must acquire an automation lease before controlling an EchoPlayer.
+The existing `EchoPlayerControlApi.tryAcquireAutomation(...)` overloads remain
+non-preemptible and reject possession while active. An add-on may explicitly
+request `PossessionPreemptionPolicy.ALLOW`; authorized possession then
+synchronously asks its listener to release every writable input, suspends the
+lease without changing its token, and returns control after unpossess. Close the
+returned `AutomationControlLease` on the Minecraft server thread on every normal
+exit path.
 
-An optional `AutomationControlListener` is invoked on the server thread when
-EchoPlayer revokes a lease because the target is removed, is unloaded outside
-the normal death flow, or the server stops. A lease survives death and is moved
-to the respawned EchoPlayer instance with the same UUID. Add-ons should pause
-actions while that instance is unavailable and resume or replan after respawn.
+An optional `AutomationControlListener` is invoked on the server thread for
+possession preemption/release and when EchoPlayer revokes a lease because the
+target is removed, is unloaded outside the normal death flow, or the server
+stops. A lease survives death and is moved to the respawned EchoPlayer instance
+with the same UUID. Add-ons should pause actions while that instance is
+unavailable and resume or replan after respawn.
 The API arbitrates control only; add-ons remain responsible for checking the
 requesting user's authorization before acquiring a lease.
 

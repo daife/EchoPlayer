@@ -18,13 +18,23 @@ public final class AutomationControlLease implements AutoCloseable {
     private final UUID echoPlayerId;
     private final ResourceLocation controllerId;
     private final UUID token;
+    private final PossessionPreemptionPolicy possessionPreemptionPolicy;
+    private volatile State state = State.ACTIVE;
     private volatile TerminationReason terminationReason;
 
-    AutomationControlLease(MinecraftServer server, UUID echoPlayerId, ResourceLocation controllerId, UUID token) {
+    AutomationControlLease(
+        MinecraftServer server,
+        UUID echoPlayerId,
+        ResourceLocation controllerId,
+        UUID token,
+        PossessionPreemptionPolicy possessionPreemptionPolicy
+    ) {
         this.server = Objects.requireNonNull(server, "server");
         this.echoPlayerId = Objects.requireNonNull(echoPlayerId, "echoPlayerId");
         this.controllerId = Objects.requireNonNull(controllerId, "controllerId");
         this.token = Objects.requireNonNull(token, "token");
+        this.possessionPreemptionPolicy = Objects.requireNonNull(
+            possessionPreemptionPolicy, "possessionPreemptionPolicy");
     }
 
     public UUID echoPlayerId() {
@@ -36,7 +46,17 @@ public final class AutomationControlLease implements AutoCloseable {
     }
 
     public boolean isActive() {
-        return this.terminationReason == null;
+        return this.state != State.TERMINATED;
+    }
+
+    /** Returns whether automation currently owns the writable control channels. */
+    public boolean hasControl() {
+        return this.state == State.ACTIVE;
+    }
+
+    /** Returns the lease lifecycle and current control-grant state. */
+    public State state() {
+        return this.state;
     }
 
     /**
@@ -59,10 +79,34 @@ public final class AutomationControlLease implements AutoCloseable {
         return this.token;
     }
 
+    PossessionPreemptionPolicy possessionPreemptionPolicy() {
+        return this.possessionPreemptionPolicy;
+    }
+
+    void suspendForPossession() {
+        if (this.state == State.ACTIVE) {
+            this.state = State.POSSESSION_SUSPENDED;
+        }
+    }
+
+    void resumeAfterPossession() {
+        if (this.state == State.POSSESSION_SUSPENDED) {
+            this.state = State.ACTIVE;
+        }
+    }
+
     void terminate(TerminationReason reason) {
         if (this.terminationReason == null) {
             this.terminationReason = Objects.requireNonNull(reason, "reason");
+            this.state = State.TERMINATED;
         }
+    }
+
+    /** Lifecycle and current writable-control state of this lease. */
+    public enum State {
+        ACTIVE,
+        POSSESSION_SUSPENDED,
+        TERMINATED
     }
 
     public enum TerminationReason {

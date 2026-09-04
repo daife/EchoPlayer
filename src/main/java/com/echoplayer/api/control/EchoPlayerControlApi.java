@@ -29,20 +29,35 @@ public final class EchoPlayerControlApi {
 
     private EchoPlayerControlApi() {}
 
+    /** Atomically acquires a non-preemptible automation lease. */
     public static AutomationControlAcquisition tryAcquireAutomation(
         EchoServerPlayer echoPlayer,
         ResourceLocation controllerId
     ) {
-        return tryAcquireAutomation(echoPlayer, controllerId, NOOP_LISTENER);
+        return tryAcquireAutomation(echoPlayer, controllerId,
+            PossessionPreemptionPolicy.DENY, NOOP_LISTENER);
     }
 
+    /** Atomically acquires a non-preemptible automation lease with lifecycle notifications. */
     public static AutomationControlAcquisition tryAcquireAutomation(
         EchoServerPlayer echoPlayer,
         ResourceLocation controllerId,
         AutomationControlListener listener
     ) {
+        return tryAcquireAutomation(echoPlayer, controllerId,
+            PossessionPreemptionPolicy.DENY, listener);
+    }
+
+    /** Atomically acquires automation control with an explicit possession-preemption policy. */
+    public static AutomationControlAcquisition tryAcquireAutomation(
+        EchoServerPlayer echoPlayer,
+        ResourceLocation controllerId,
+        PossessionPreemptionPolicy possessionPreemptionPolicy,
+        AutomationControlListener listener
+    ) {
         Objects.requireNonNull(echoPlayer, "echoPlayer");
         Objects.requireNonNull(controllerId, "controllerId");
+        Objects.requireNonNull(possessionPreemptionPolicy, "possessionPreemptionPolicy");
         Objects.requireNonNull(listener, "listener");
         MinecraftServer server = echoPlayer.server;
         requireServerThread(server);
@@ -64,9 +79,67 @@ public final class EchoPlayerControlApi {
         }
 
         AutomationControlLease lease = new AutomationControlLease(
-            server, echoPlayer.getUUID(), controllerId, UUID.randomUUID());
+            server, echoPlayer.getUUID(), controllerId, UUID.randomUUID(), possessionPreemptionPolicy);
         serverLeases.put(echoPlayer.getUUID(), new Registration(echoPlayer, lease, listener));
         return AutomationControlAcquisition.acquired(lease);
+    }
+
+    /**
+     * Possession lifecycle hook. Returns whether possession may proceed after any active
+     * automation controller has synchronously released its writable control channels.
+     */
+    public static PossessionPreemptionResult beginPossession(
+        EchoServerPlayer echoPlayer,
+        UUID possessorId
+    ) {
+        Objects.requireNonNull(echoPlayer, "echoPlayer");
+        Objects.requireNonNull(possessorId, "possessorId");
+        requireServerThread(echoPlayer.server);
+        Registration registration = findRegistration(echoPlayer);
+        if (registration == null) {
+            return PossessionPreemptionResult.NOT_AUTOMATED;
+        }
+        if (registration.lease.state() == AutomationControlLease.State.POSSESSION_SUSPENDED) {
+            return PossessionPreemptionResult.ALREADY_SUSPENDED;
+        }
+        if (registration.lease.possessionPreemptionPolicy() != PossessionPreemptionPolicy.ALLOW) {
+            return PossessionPreemptionResult.DENIED;
+        }
+        final boolean released;
+        try {
+            released = registration.listener.onPossessionPreempting(registration.lease, possessorId);
+        } catch (Throwable error) {
+            Constants.LOG.error("Automation controller {} failed to yield EchoPlayer {}",
+                registration.lease.controllerId(), registration.lease.echoPlayerId(), error);
+            return PossessionPreemptionResult.DENIED;
+        }
+        if (!released || !registration.lease.isActive()) {
+            return PossessionPreemptionResult.DENIED;
+        }
+        registration.lease.suspendForPossession();
+        registration.possessorId = possessorId;
+        return PossessionPreemptionResult.SUSPENDED;
+    }
+
+    /** Possession lifecycle hook that returns a retained lease to its automation controller. */
+    public static void endPossession(EchoServerPlayer echoPlayer, UUID possessorId) {
+        Objects.requireNonNull(echoPlayer, "echoPlayer");
+        Objects.requireNonNull(possessorId, "possessorId");
+        requireServerThread(echoPlayer.server);
+        Registration registration = findRegistration(echoPlayer);
+        if (registration == null
+            || registration.lease.state() != AutomationControlLease.State.POSSESSION_SUSPENDED
+            || !possessorId.equals(registration.possessorId)) {
+            return;
+        }
+        registration.possessorId = null;
+        registration.lease.resumeAfterPossession();
+        try {
+            registration.listener.onPossessionReleased(registration.lease, possessorId);
+        } catch (Throwable error) {
+            Constants.LOG.error("Automation controller {} failed while resuming EchoPlayer {}",
+                registration.lease.controllerId(), registration.lease.echoPlayerId(), error);
+        }
     }
 
     public static ControlMode getControlMode(EchoServerPlayer echoPlayer) {
@@ -251,10 +324,19 @@ public final class EchoPlayerControlApi {
         UNAVAILABLE
     }
 
+    /** Result of asking the current automation registration to yield for possession. */
+    public enum PossessionPreemptionResult {
+        NOT_AUTOMATED,
+        SUSPENDED,
+        ALREADY_SUSPENDED,
+        DENIED
+    }
+
     private static final class Registration {
         private EchoServerPlayer echoPlayer;
         private final AutomationControlLease lease;
         private final AutomationControlListener listener;
+        private UUID possessorId;
 
         private Registration(
             EchoServerPlayer echoPlayer,

@@ -702,11 +702,6 @@ public class EchoPlayerManager {
         if (echoPlayer.isRemoved() || echoPlayer.isDeadOrDying() || echoPlayer.linkedRealPlayer != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is not available.";
         }
-        Optional<ResourceLocation> automationController = EchoPlayerControlApi.getAutomationControllerId(echoPlayer);
-        if (automationController.isPresent()) {
-            return "EchoPlayer " + echoPlayer.getGameProfile().getName()
-                + " is currently controlled by automation (" + automationController.get() + ").";
-        }
         if (!canManageEchoPlayer(realPlayer, echoPlayer)) {
             return "Only the player who spawned " + echoPlayer.getGameProfile().getName() + " may control it.";
         }
@@ -714,47 +709,74 @@ public class EchoPlayerManager {
         if (session != null && session.controller != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is already being controlled.";
         }
+        EchoPlayerControlApi.PossessionPreemptionResult preemption =
+            EchoPlayerControlApi.beginPossession(echoPlayer, realPlayer.getUUID());
+        if (preemption == EchoPlayerControlApi.PossessionPreemptionResult.DENIED
+            || preemption == EchoPlayerControlApi.PossessionPreemptionResult.ALREADY_SUSPENDED) {
+            Optional<ResourceLocation> automationController =
+                EchoPlayerControlApi.getAutomationControllerId(echoPlayer);
+            return "EchoPlayer " + echoPlayer.getGameProfile().getName()
+                + " is currently controlled by automation"
+                + automationController.map(id -> " (" + id + ")").orElse("") + ".";
+        }
         ControllerState currentState = CONTROLLERS.get(realPlayer.getUUID());
         if (currentState != null) {
-            return switchPossession(currentState, echoPlayer, session);
+            try {
+                return switchPossession(currentState, echoPlayer, session);
+            } catch (RuntimeException | Error failure) {
+                if (getPossessed(realPlayer) != echoPlayer) {
+                    discardEmptyPossessionSession(echoPlayer);
+                    EchoPlayerControlApi.endPossession(echoPlayer, realPlayer.getUUID());
+                }
+                throw failure;
+            }
         }
-        if (session == null) {
-            session = new PossessionSession(echoPlayer);
-            SESSIONS.put(echoPlayer.getUUID(), session);
-        }
-        createCrashBackup(realPlayer);
-        ViewRotation bodyView = captureCurrentClientView(realPlayer);
-        ViewRotation echoView = captureClientEntityView(realPlayer, echoPlayer);
-        EchoServerPlayer shell = createOriginalBodyShell(realPlayer, bodyView);
-        List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(realPlayer, shell, echoPlayer, shell);
-        ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session, null);
-        ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
-        if (previousState != null) {
-            // createOriginalBodyShell already moved holder relationships to the
-            // temporary shell, so restore them before discarding it.
-            transferLeashHolders(shell, realPlayer);
-            removeShellEntity(shell, realPlayer.server);
-            return "You are already controlling an EchoPlayer.";
-        }
-        PlayerCollarsCompat.transferLeashedTarget(realPlayer, shell);
-        session.controller = state;
-        transferFishingHook(realPlayer, shell);
-        transferFishingHookTargets(realPlayer, shell);
-        // Treat orientation as a separate state from riding.  Mounting changes a
-        // rider's position, but must never decide which direction the camera faces.
-        Entity realVehicle = realPlayer.getVehicle();
-        if (realVehicle != null) {
-            realPlayer.stopRiding();
-        }
-        if (realVehicle != null) {
-            shell.startRiding(realVehicle, true);
-            applyViewRotation(shell, bodyView);
-        }
+        try {
+            if (session == null) {
+                session = new PossessionSession(echoPlayer);
+                SESSIONS.put(echoPlayer.getUUID(), session);
+            }
+            createCrashBackup(realPlayer);
+            ViewRotation bodyView = captureCurrentClientView(realPlayer);
+            ViewRotation echoView = captureClientEntityView(realPlayer, echoPlayer);
+            EchoServerPlayer shell = createOriginalBodyShell(realPlayer, bodyView);
+            List<EntityViewRotation> passiveViews = capturePassiveAvatarViews(realPlayer, shell, echoPlayer, shell);
+            ControllerState state = new ControllerState(realPlayer, echoPlayer, shell, session, null);
+            ControllerState previousState = CONTROLLERS.putIfAbsent(realPlayer.getUUID(), state);
+            if (previousState != null) {
+                // createOriginalBodyShell already moved holder relationships to the
+                // temporary shell, so restore them before discarding it.
+                transferLeashHolders(shell, realPlayer);
+                removeShellEntity(shell, realPlayer.server);
+                EchoPlayerControlApi.endPossession(echoPlayer, realPlayer.getUUID());
+                return "You are already controlling an EchoPlayer.";
+            }
+            PlayerCollarsCompat.transferLeashedTarget(realPlayer, shell);
+            session.controller = state;
+            transferFishingHook(realPlayer, shell);
+            transferFishingHookTargets(realPlayer, shell);
+            // Treat orientation as a separate state from riding.  Mounting changes a
+            // rider's position, but must never decide which direction the camera faces.
+            Entity realVehicle = realPlayer.getVehicle();
+            if (realVehicle != null) {
+                realPlayer.stopRiding();
+            }
+            if (realVehicle != null) {
+                shell.startRiding(realVehicle, true);
+                applyViewRotation(shell, bodyView);
+            }
 
-        enterControlledEcho(state, echoView, passiveViews);
-        hideControllerFromObservers(realPlayer);
-        updateLogicalSleepStatus(state);
-        return null;
+            enterControlledEcho(state, echoView, passiveViews);
+            hideControllerFromObservers(realPlayer);
+            updateLogicalSleepStatus(state);
+            return null;
+        } catch (RuntimeException | Error failure) {
+            if (getPossessed(realPlayer) != echoPlayer) {
+                discardEmptyPossessionSession(echoPlayer);
+                EchoPlayerControlApi.endPossession(echoPlayer, realPlayer.getUUID());
+            }
+            throw failure;
+        }
     }
 
     private static String switchPossession(ControllerState previousState, EchoServerPlayer echoPlayer, PossessionSession targetSession) {
@@ -1198,6 +1220,14 @@ public class EchoPlayerManager {
         if (state.session.controller == state) {
             state.session.controller = null;
             SESSIONS.remove(state.echoPlayer.getUUID(), state.session);
+        }
+        EchoPlayerControlApi.endPossession(state.echoPlayer, state.realPlayer.getUUID());
+    }
+
+    private static void discardEmptyPossessionSession(EchoServerPlayer echoPlayer) {
+        PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
+        if (session != null && session.controller == null) {
+            SESSIONS.remove(echoPlayer.getUUID(), session);
         }
     }
 
