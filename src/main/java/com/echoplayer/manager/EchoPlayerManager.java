@@ -2,6 +2,7 @@ package com.echoplayer.manager;
 
 import com.echoplayer.Constants;
 import com.echoplayer.compat.PlayerCollarsCompat;
+import com.echoplayer.compat.YesSteveModelCompat;
 import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.data.EchoPlayerSavedData;
 import com.echoplayer.entity.EchoServerPlayer;
@@ -825,6 +826,7 @@ public class EchoPlayerManager {
 
     private static void enterControlledEcho(ControllerState state, ViewRotation echoView, List<EntityViewRotation> passiveViews) {
         EchoServerPlayer echoPlayer = state.echoPlayer;
+        YesSteveModelCompat.synchronizeModelSelection(echoPlayer, state.realPlayer);
         Entity echoVehicle = echoPlayer.getVehicle();
         if (echoVehicle != null) {
             echoPlayer.stopRiding();
@@ -1238,6 +1240,7 @@ public class EchoPlayerManager {
         shellProfile.getProperties().putAll(realPlayer.getGameProfile().getProperties());
         EchoServerPlayer shell = new EchoServerPlayer(realPlayer.server, realPlayer.serverLevel(), shellProfile);
         shell.linkedRealPlayer = realPlayer;
+        YesSteveModelCompat.copyModelSelection(realPlayer, shell);
         EchoConnection shellConn = new EchoConnection(PacketFlow.SERVERBOUND);
         EchoServerGamePacketListenerImpl shellListener = new EchoServerGamePacketListenerImpl(realPlayer.server, shellConn, shell);
         shell.connection = shellListener;
@@ -1253,6 +1256,7 @@ public class EchoPlayerManager {
             player.connection.send(addPacket);
         }
         realPlayer.serverLevel().addFreshEntity(shell);
+        YesSteveModelCompat.synchronizeModelSelection(shell);
         transferLeashHolders(realPlayer, shell);
         return shell;
     }
@@ -1381,6 +1385,7 @@ public class EchoPlayerManager {
     }
 
     private static void copyRealStateToEcho(ControllerState state, boolean copyHealth) {
+        YesSteveModelCompat.synchronizeModelSelection(state.realPlayer, state.echoPlayer);
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer echoPlayer = state.echoPlayer;
         GameType realGameMode = realPlayer.gameMode.getGameModeForPlayer();
@@ -1751,6 +1756,7 @@ public class EchoPlayerManager {
     private static void restoreRealPlayerFromShell(ControllerState state, boolean teleport) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
+        YesSteveModelCompat.synchronizeModelSelection(shellPlayer, realPlayer);
         StateSynchronizer.copyInventoryContents(shellPlayer, realPlayer);
         Services.PLATFORM.syncModdedInventories(shellPlayer, realPlayer);
         StateSynchronizer.setGameModeIfNeeded(realPlayer, shellPlayer.gameMode.getGameModeForPlayer());
