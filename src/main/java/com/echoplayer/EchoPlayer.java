@@ -1,6 +1,7 @@
 package com.echoplayer;
 
 import com.echoplayer.CommonClass;
+import com.echoplayer.compat.PalladiumCompat;
 import com.echoplayer.api.control.EchoPlayerControlApi;
 import com.echoplayer.client.ClientPacketHandler;
 import com.echoplayer.client.ClientPossessionData;
@@ -38,6 +39,7 @@ public class EchoPlayer {
 
     public EchoPlayer() {
         CommonClass.init();
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST, PalladiumCompat::onStartTracking);
         MinecraftForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> EchoPlayerCommand.register(event.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStopping);

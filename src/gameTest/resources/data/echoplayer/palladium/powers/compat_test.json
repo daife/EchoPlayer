@@ -1,0 +1,23 @@
+{
+  "name": "EchoPlayer integration fixture",
+  "persistent_data": true,
+  "energy_bars": {
+    "energy": { "max": 100, "auto_increase_per_tick": 1 }
+  },
+  "abilities": {
+    "toggle": {
+      "type": "palladium:animation_timer",
+      "max_value": 200,
+      "conditions": { "enabling": { "type": "palladium:toggle" } }
+    },
+    "held": {
+      "type": "palladium:animation_timer",
+      "max_value": 200,
+      "conditions": { "enabling": { "type": "palladium:held" } }
+    },
+    "timer": {
+      "type": "palladium:animation_timer",
+      "max_value": 200
+    }
+  }
+}

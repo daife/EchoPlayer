@@ -22,6 +22,9 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateMobEffectPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -59,6 +62,11 @@ extends ServerGamePacketListenerImpl {
     );
 
     private boolean shouldProxy(Packet<?> packet) {
+        if (com.echoplayer.compat.PalladiumCompat.isLoaded()
+            && (packet instanceof ClientboundSoundPacket || packet instanceof ClientboundSystemChatPacket
+                || packet instanceof ClientboundLevelParticlesPacket)) {
+            return true;
+        }
         if (packet.getClass().getName().equals("org.jlortiz.playercollars.PacketLookAtLerped")) {
             return true;
         }

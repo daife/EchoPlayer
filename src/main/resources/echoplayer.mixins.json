@@ -2,9 +2,18 @@
     "required":  true,
     "minVersion":  "0.8",
     "package":  "com.echoplayer.mixin",
+    "plugin": "com.echoplayer.compat.OptionalCompatMixinPlugin",
     "refmap":  "echoplayer.refmap.json",
     "compatibilityLevel":  "JAVA_17",
     "mixins":  [
+                   "compat.palladium.MixinPalladiumEntity",
+                   "compat.palladium.MixinPalladiumPlayerHandler",
+                   "compat.palladium.MixinPalladiumPowerHandler",
+                   "compat.palladium.MixinPalladiumNetwork",
+                   "compat.pantheonsent.MixinKhonshu",
+                   "compat.pantheonsent.MixinUshabtiBlock",
+                   "compat.pantheonsent.MixinUshabtiBlockEntity",
+                   "compat.pantheonsent.MixinPantheonProperties",
                    "MixinMinecraftServer",
                    "MixinEntitySelector",
                    "MixinServerLevel",
@@ -53,6 +62,9 @@
                    "identity.compat.MixinTouhouLittleMaidEntityMaid"
                ],
     "client":  [
+                   "compat.palladium.MixinPalladiumKeyMappings",
+                   "compat.palladium.MixinPalladiumClientPowers",
+                   "compat.pantheonsent.MixinKhonshuRenderer",
                    "MixinMinecraft",
                    "client.MixinEntityClient",
                    "client.MixinLivingEntityClient",

@@ -1,5 +1,7 @@
 package com.echoplayer.manager;
 
+import com.echoplayer.compat.PalladiumCompat;
+
 import com.echoplayer.Constants;
 import com.echoplayer.compat.PlayerCollarsCompat;
 import com.echoplayer.compat.YesSteveModelCompat;
@@ -706,6 +708,8 @@ public class EchoPlayerManager {
         if (!canManageEchoPlayer(realPlayer, echoPlayer)) {
             return "Only the player who spawned " + echoPlayer.getGameProfile().getName() + " may control it.";
         }
+        String palladiumError = PalladiumCompat.validatePossession(realPlayer, echoPlayer);
+        if (palladiumError != null) return palladiumError;
         PossessionSession session = SESSIONS.get(echoPlayer.getUUID());
         if (session != null && session.controller != null) {
             return "EchoPlayer " + echoPlayer.getGameProfile().getName() + " is already being controlled.";
@@ -748,6 +752,7 @@ public class EchoPlayerManager {
                 // createOriginalBodyShell already moved holder relationships to the
                 // temporary shell, so restore them before discarding it.
                 transferLeashHolders(shell, realPlayer);
+                PalladiumCompat.restore(realPlayer, shell);
                 removeShellEntity(shell, realPlayer.server);
                 EchoPlayerControlApi.endPossession(echoPlayer, realPlayer.getUUID());
                 return "You are already controlling an EchoPlayer.";
@@ -826,6 +831,7 @@ public class EchoPlayerManager {
 
     private static void enterControlledEcho(ControllerState state, ViewRotation echoView, List<EntityViewRotation> passiveViews) {
         EchoServerPlayer echoPlayer = state.echoPlayer;
+        PalladiumCompat.enter(state.realPlayer, echoPlayer);
         YesSteveModelCompat.synchronizeModelSelection(echoPlayer, state.realPlayer);
         Entity echoVehicle = echoPlayer.getVehicle();
         if (echoVehicle != null) {
@@ -850,6 +856,7 @@ public class EchoPlayerManager {
         // become authoritative, and send the exact same snapshots to the client.
         applyPassiveAvatarViews(passiveViews);
         sendPossessPacket(state, passiveViews);
+        PalladiumCompat.synchronize(state.realPlayer);
     }
 
     public static boolean handlePossessedDamage(ServerPlayer realPlayer, DamageSource source, float amount) {
@@ -1218,6 +1225,7 @@ public class EchoPlayerManager {
     }
 
     private static void removeControllerState(ControllerState state) {
+        PalladiumCompat.leave(state.realPlayer, state.echoPlayer);
         CONTROLLERS.remove(state.realPlayer.getUUID(), state);
         if (state.session.controller == state) {
             state.session.controller = null;
@@ -1249,6 +1257,7 @@ public class EchoPlayerManager {
         copyRidingTransform(realPlayer, shell);
         applyViewRotation(shell, bodyView);
         StateSynchronizer.copyRealStateToShell(realPlayer, shell);
+        PalladiumCompat.moveToShell(realPlayer, shell);
         StateSynchronizer.transferSleepingState(realPlayer, shell);
         EnumSet<ClientboundPlayerInfoUpdatePacket.Action> actions = EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.INITIALIZE_CHAT, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME);
         ClientboundPlayerInfoUpdatePacket addPacket = new ClientboundPlayerInfoUpdatePacket(actions, List.of(shell));
@@ -1444,6 +1453,7 @@ public class EchoPlayerManager {
         if (inventoryChanged) {
             StateSynchronizer.updateEchoEquipment(echoPlayer);
         }
+        PalladiumCompat.tick(realPlayer, echoPlayer);
     }
 
     private static void syncFoodState(ControllerState state, ServerPlayer realPlayer, EchoServerPlayer echoPlayer) {
@@ -1743,6 +1753,7 @@ public class EchoPlayerManager {
                         realPlayer.getAbilities().loadSaveData(backup.getCompound("abilities"));
                         realPlayer.onUpdateAbilities();
                     }
+                    PalladiumCompat.restoreBackup(realPlayer, backup);
                     Files.deleteIfExists(path);
                     StateSynchronizer.syncRealPlayerPackets(realPlayer);
                     realPlayer.containerMenu.broadcastChanges();
@@ -1756,6 +1767,7 @@ public class EchoPlayerManager {
     private static void restoreRealPlayerFromShell(ControllerState state, boolean teleport) {
         ServerPlayer realPlayer = state.realPlayer;
         EchoServerPlayer shellPlayer = state.shellPlayer;
+        PalladiumCompat.restore(realPlayer, shellPlayer);
         YesSteveModelCompat.synchronizeModelSelection(shellPlayer, realPlayer);
         StateSynchronizer.copyInventoryContents(shellPlayer, realPlayer);
         Services.PLATFORM.syncModdedInventories(shellPlayer, realPlayer);
@@ -1787,6 +1799,7 @@ public class EchoPlayerManager {
             StateSynchronizer.transferSleepingState(shellPlayer, realPlayer);
             realPlayer.serverLevel().updateSleepingPlayerList();
         }
+        PalladiumCompat.synchronize(realPlayer);
     }
 
     private static void updateLogicalSleepStatus(ControllerState state) {
@@ -1853,6 +1866,7 @@ public class EchoPlayerManager {
 
     private static void restoreRealPlayerForRespawn(ControllerState state) {
         ServerPlayer realPlayer = state.realPlayer;
+        PalladiumCompat.restore(realPlayer, state.shellPlayer);
         realPlayer.setGameMode(state.originalGameMode);
         realPlayer.getInventory().clearContent();
         realPlayer.getInventory().load(state.originalInventory);

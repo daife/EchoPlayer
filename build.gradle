@@ -41,6 +41,14 @@ minecraft {
 }
 
 repositories {
+    maven {
+        url = 'https://www.cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+    maven {
+        url = 'https://maven.threetag.net'
+        content { includeGroup 'net.threetag' }
+    }
     maven { url = 'https://maven.aliyun.com/repository/public/' }
     mavenCentral()
 }
@@ -50,6 +58,9 @@ dependencies {
     compileOnly files('libs/MixinExtras-0.4.1.jar')
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     annotationProcessor files('libs/MixinExtras-0.4.1.jar')
+    compileOnly fg.deobf("net.threetag:palladium-forge:${palladium_version}:forge", { transitive = false })
+    compileOnly fg.deobf("net.threetag:palladiumcore-forge:${palladiumcore_version}:forge", { transitive = false })
+    compileOnly fg.deobf("curse.maven:pantheonsent-968457:${pantheonsent_file_id}", { transitive = false })
 }
 
 mixin {
@@ -81,4 +92,43 @@ tasks.named('jar', Jar).configure {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
+}
+
+// Opt-in integration tests run in an isolated world; none of these classes,
+// fixtures or runtime mods are included in the published jars.
+if (providers.gradleProperty('compatTests').isPresent()) {
+    sourceSets {
+        gameTest {
+            compileClasspath += sourceSets.main.output + configurations.compileClasspath
+            runtimeClasspath += sourceSets.main.output + configurations.runtimeClasspath
+        }
+    }
+    if (providers.gradleProperty('compatWithoutPalladium').isPresent()) {
+        sourceSets.gameTest.java.exclude '**/PalladiumGameTests.java'
+    } else {
+        repositories {
+            maven { url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/' }
+            maven { url = 'https://maven.kosmx.dev/' }
+            maven { url = 'https://api.modrinth.com/maven' }
+            maven { url = 'https://maven.architectury.dev/' }
+        }
+        dependencies {
+            runtimeOnly fg.deobf("net.threetag:palladium-forge:${palladium_version}:forge", { transitive = false })
+            runtimeOnly fg.deobf("net.threetag:palladiumcore-forge:${palladiumcore_version}:forge", { transitive = false })
+            runtimeOnly fg.deobf("curse.maven:pantheonsent-968457:${pantheonsent_file_id}", { transitive = false })
+            runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:${geckolib_version}", { transitive = false })
+            runtimeOnly fg.deobf("maven.modrinth:sherdsapi:${sherdsapi_version}", { transitive = false })
+            runtimeOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}", { transitive = false })
+        }
+    }
+    minecraft.runs {
+        gameTestServer {
+            workingDirectory project.file(providers.gradleProperty('compatWithoutPalladium').isPresent()
+                ? 'run/compat-tests-base' : 'run/compat-tests-palladium')
+            property 'forge.enabledGameTestNamespaces', 'echoplayer'
+            mods {
+                echoplayer { source sourceSets.gameTest }
+            }
+        }
+    }
 }
