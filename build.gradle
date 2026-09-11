@@ -97,6 +97,8 @@ tasks.withType(JavaCompile).configureEach {
 // Opt-in integration tests run in an isolated world; none of these classes,
 // fixtures or runtime mods are included in the published jars.
 if (providers.gradleProperty('compatTests').isPresent()) {
+    def compatTestRunDir = project.file(providers.gradleProperty('compatWithoutPalladium').isPresent()
+        ? 'run/compat-tests-base' : 'run/compat-tests-palladium')
     sourceSets {
         gameTest {
             compileClasspath += sourceSets.main.output + configurations.compileClasspath
@@ -123,11 +125,20 @@ if (providers.gradleProperty('compatTests').isPresent()) {
     }
     minecraft.runs {
         gameTestServer {
-            workingDirectory project.file(providers.gradleProperty('compatWithoutPalladium').isPresent()
-                ? 'run/compat-tests-base' : 'run/compat-tests-palladium')
+            workingDirectory compatTestRunDir
             property 'forge.enabledGameTestNamespaces', 'echoplayer'
             mods {
-                echoplayer { source sourceSets.gameTest }
+                echoplayer_gametest { source sourceSets.gameTest }
+            }
+        }
+    }
+    tasks.configureEach {
+        if (name == 'prepareRunGameTestServer') {
+            doLast {
+                copy {
+                    from sourceSets.gameTest.resources.matching { include 'gameteststructures/**' }
+                    into compatTestRunDir
+                }
             }
         }
     }

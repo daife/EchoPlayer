@@ -1,4 +1,4 @@
-package com.echoplayer.compat;
+package com.echoplayer.gametest;
 
 import com.echoplayer.compat.palladium.PantheonIdentity;
 import com.echoplayer.manager.EchoPlayerManager;
@@ -29,7 +29,7 @@ public final class PalladiumGameTests {
         return handler.getPowerHolders().get(POWER);
     }
 
-    @GameTest(template = "forge:empty", timeoutTicks = 100)
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void liveStateAndSaveIsolation(GameTestHelper helper) {
         try (var players = new CompatTestPlayers(helper)) {
             var body = grant(players.player);
@@ -81,7 +81,7 @@ public final class PalladiumGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "forge:empty", timeoutTicks = 100)
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void khonshuFollowsCharacter(GameTestHelper helper) {
         try (var players = new CompatTestPlayers(helper)) {
             var originalKhonshu = new Khonshu(helper.getLevel(), players.player);

@@ -1,4 +1,4 @@
-package com.echoplayer.compat;
+package com.echoplayer.gametest;
 
 import com.echoplayer.entity.EchoServerPlayer;
 import com.echoplayer.manager.EchoPlayerManager;

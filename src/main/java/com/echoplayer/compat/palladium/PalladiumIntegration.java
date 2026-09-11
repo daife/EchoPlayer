@@ -95,9 +95,15 @@ public final class PalladiumIntegration {
         // Palladium's own mixin serializes the fields attached to this entity.
         // During possession the authenticated player has been rebound to the
         // controlled character and the hidden shell retains the original one;
-        // choosing through controller() here would serialize the wrong character
-        // whenever the shell is saved.
-        PalladiumState state = PalladiumState.of(player);
+        // The authenticated player's disk record still belongs to the original
+        // body, so select its shell while possession is active. Echo and shell
+        // entities already have the character state that belongs in their save.
+        ServerPlayer character = player;
+        if (!(player instanceof EchoServerPlayer) && EchoPlayerManager.isPossessing(player)) {
+            ServerPlayer shell = EchoPlayerManager.getIdentityAvatar(player.getUUID());
+            if (shell != null) character = shell;
+        }
+        PalladiumState state = PalladiumState.of(character);
         CompoundTag palladium = tag.getCompound("Palladium");
         palladium.put("Powers", state.powers.toNBT().copy());
         palladium.put("Properties", state.properties.toNBT(true).copy());

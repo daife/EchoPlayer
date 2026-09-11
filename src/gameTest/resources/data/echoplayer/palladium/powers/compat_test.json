@@ -1,5 +1,6 @@
 {
   "name": "EchoPlayer integration fixture",
+  "icon": "minecraft:stone",
   "persistent_data": true,
   "energy_bars": {
     "energy": { "max": 100, "auto_increase_per_tick": 1 }

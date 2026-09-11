@@ -1,0 +1,15 @@
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "echoplayer_gametest"
+version = "1"
+displayName = "EchoPlayer compatibility tests"
+
+[[dependencies.echoplayer_gametest]]
+modId = "echoplayer"
+mandatory = true
+versionRange = "[1.0.9-beta,)"
+ordering = "AFTER"
+side = "BOTH"
